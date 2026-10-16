@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+
+/* Brand tokens — source: Files/paleta de colores.png and Files/tipografia (Montserrat) */
+@theme {
+  --color-crema: #f6f8e3;
+  --color-bordo: #470e12;
+  --color-verde: #5a7329;
+  --color-verde-oscuro: #4c6426;
+
+  /* Derived tints, used for soft section backgrounds and borders */
+  --color-crema-claro: #fbfcf2;
+  --color-verde-claro: #e4ebcf;
+  --color-linea: #e6e9d2;
+
+  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 8px 23px 0 rgb(71 14 18 / 0.07);
+}
+
+@layer base {
+  body {
+    @apply bg-crema text-bordo font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Small uppercase label above section titles */
+  .kicker {
+    @apply text-[11px] font-extrabold tracking-[0.18em] uppercase;
+  }
+
+  .btn-pill {
+    @apply inline-flex items-center gap-2 rounded-full bg-verde px-6 py-3 text-sm font-bold text-crema transition hover:bg-verde-oscuro;
+  }
+}
+
+/* Animaciones de aparición: el elemento sube y se funde al entrar en pantalla */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Cada tarjeta entra en cascada: el retraso depende de su posición (--i) */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition-delay: calc(var(--i, 0) * 45ms);
+}
+.reveal-group.in .reveal-item {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.6s ease both;
+}
+
+/* Bordes del carrusel de categorías: se difuminan para que las tarjetas no se corten de golpe */
+.fade-edges {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+}
+
+/* Panel de filtros: se desliza desde la izquierda y el fondo se funde */
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.drawer-in {
+  animation: drawer-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.fade-in {
+  animation: fade-in 0.25s ease both;
+}
+
+/* Flecha del aviso de scroll: rebota hacia abajo */
+@keyframes scroll-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+.scroll-hint-arrow {
+  animation: scroll-bounce 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint-arrow,
+  .drawer-in,
+  .fade-in {
+    animation: none;
+  }
+  .reveal,
+  .reveal-item,
+  .fade-up {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    animation: none;
+  }
+}

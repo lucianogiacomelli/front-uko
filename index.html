@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#470E12" />
+    <meta name="description" content="UKO Dietética & Herboristería — catálogo de productos naturales." />
+    <title>UKO Dietética & Herboristería</title>
+    <style>
+      /* Pantalla de carga: visible desde el primer pixel, antes de que cargue React */
+      #loader{position:fixed;inset:0;z-index:10100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:#f6f8e3;overflow:hidden;transition:opacity .4s ease}
+      #loader.hidden{opacity:0;pointer-events:none}
+      .loader-bubbles{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+      .loader-bubble{position:absolute;bottom:-90px;border-radius:50%;animation:loaderFloat 36s linear infinite;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+      .loader-bubble.g{background:#8fa96a}
+      .loader-bubble.r{background:#b98a7a}
+      .loader-bubble.v{background:#5a7329}
+      .loader-logo-wrap{position:relative;width:140px;height:140px;display:flex;align-items:center;justify-content:center;z-index:2}
+      .loader-logo{width:104px;height:104px;border-radius:50%;object-fit:cover;box-shadow:0 6px 22px rgba(71,14,18,.18)}
+      .loader-ring{position:absolute;inset:0;border:5px solid rgba(90,115,41,.15);border-top-color:#5a7329;border-radius:50%;animation:loaderSpin 1.2s linear infinite}
+      .loader-text{font-family:'Montserrat',system-ui,sans-serif;font-size:17px;font-weight:600;letter-spacing:.5px;color:#470e12;z-index:2}
+      @keyframes loaderSpin{to{transform:rotate(360deg)}}
+      @keyframes loaderFloat{from{transform:translate(0,0)}to{transform:translate(0,-120vh)}}
+      @media (prefers-reduced-motion: reduce){
+        .loader-ring,.loader-bubble{animation-duration:0s;animation-iteration-count:1}
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loader" aria-hidden="true">
+      <div class="loader-bubbles">
+        <span class="loader-bubble g" style="width:54px;height:54px;left:6%;animation-delay:-2s"></span>
+        <span class="loader-bubble v" style="width:34px;height:34px;left:16%;animation-delay:-8s"></span>
+        <span class="loader-bubble r" style="width:46px;height:46px;left:80%;animation-delay:-14s"></span>
+        <span class="loader-bubble g" style="width:40px;height:40px;left:90%;animation-delay:-4s"></span>
+        <span class="loader-bubble v" style="width:28px;height:28px;left:10%;animation-delay:-20s"></span>
+        <span class="loader-bubble r" style="width:50px;height:50px;left:84%;animation-delay:-26s"></span>
+        <span class="loader-bubble g" style="width:38px;height:38px;left:3%;animation-delay:-12s"></span>
+        <span class="loader-bubble v" style="width:60px;height:60px;left:74%;animation-delay:-22s"></span>
+        <span class="loader-bubble r" style="width:42px;height:42px;left:22%;animation-delay:-16s"></span>
+      </div>
+      <div class="loader-logo-wrap">
+        <div class="loader-ring"></div>
+        <img class="loader-logo" src="/brand/logo-circular.png" alt="" />
+      </div>
+      <div class="loader-text">Cargando UKO...</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
