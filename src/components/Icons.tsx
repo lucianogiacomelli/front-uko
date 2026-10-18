@@ -34,6 +34,16 @@ export function TagIcon({ className = 'h-4 w-4' }: Props) {
   )
 }
 
+export function CartIcon({ className = 'h-4 w-4' }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2" />
+      <circle cx="9.5" cy="19.5" r="1.5" />
+      <circle cx="17" cy="19.5" r="1.5" />
+    </svg>
+  )
+}
+
 export function LeafIcon({ className = 'h-4 w-4' }: Props) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
