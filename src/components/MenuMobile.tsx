@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
-import { BagIcon, HomeIcon, TagIcon } from './Icons'
+import { BagIcon, CartIcon, HomeIcon, TagIcon } from './Icons'
 
 // Páginas del sitio para navegar desde el menú mobile
 const paginas = [
   { to: '/', label: 'Inicio', icon: HomeIcon, end: true },
   { to: '/productos', label: 'Productos', icon: BagIcon, end: false },
   { to: '/ofertas', label: 'Ofertas', icon: TagIcon, end: false },
+  { to: '/carrito', label: 'Carrito', icon: CartIcon, end: false },
 ]
 
 type Props = { open: boolean; onClose: () => void }

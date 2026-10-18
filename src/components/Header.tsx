@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router'
-import { BagIcon, HomeIcon, SearchIcon, TagIcon } from './Icons'
+import { useCarrito } from '../carrito/CarritoContext'
+import { BagIcon, CartIcon, HomeIcon, SearchIcon, TagIcon } from './Icons'
 import MenuMobile from './MenuMobile'
 
 // hideOnDesktop: el botón solo aparece en mobile (en desktop el logo ya lleva a Home)
@@ -16,6 +17,7 @@ export default function Header() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const cerrarMenu = useCallback(() => setMenuOpen(false), [])
+  const { cantidadTotal } = useCarrito()
 
   function search(e: React.FormEvent) {
     e.preventDefault()
@@ -52,6 +54,20 @@ export default function Header() {
                 className="h-11 w-full rounded-full border border-white/95 bg-white/90 pr-4 pl-11 text-sm text-bordo shadow-[0_7px_22px_rgba(71,14,18,0.09)] outline-none backdrop-blur placeholder:text-bordo/40 focus:border-verde sm:h-12 sm:text-[15px]"
               />
             </form>
+
+            {/* Carrito: visible en mobile y desktop, con la cantidad de productos */}
+            <Link
+              to="/carrito"
+              aria-label={`Ver carrito (${cantidadTotal} productos)`}
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/95 bg-white/90 text-bordo shadow-[0_7px_18px_rgba(71,14,18,0.12)] backdrop-blur transition hover:text-verde active:scale-95 sm:h-12 sm:w-12"
+            >
+              <CartIcon className="h-5 w-5" />
+              {cantidadTotal > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-bordo px-1 text-[11px] leading-none font-extrabold text-crema shadow-md">
+                  {cantidadTotal}
+                </span>
+              )}
+            </Link>
 
             {/* Mobile: abre el menú de navegación */}
             <button

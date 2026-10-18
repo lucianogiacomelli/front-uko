@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Container from '../components/Container'
+import { useCarrito } from '../carrito/CarritoContext'
 import { price } from '../data/format'
 import { enOferta, precioConOferta } from '../data/ofertas'
+import { etiquetaPara } from '../data/pedido'
 import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
 
@@ -13,6 +15,11 @@ export default function Producto() {
   // Índice de la presentación elegida; si cambia de producto, vuelve a la primera
   const [sel, setSel] = useState(0)
   const variante = product?.variantes[sel] ?? product?.variantes[0]
+  const { agregar, items } = useCarrito()
+  const [cantidad, setCantidad] = useState(1)
+  const etiqueta = product ? etiquetaPara(product, variante) : undefined
+  const enCarrito = items.find((i) => i.productoId === product?.id && i.etiqueta === etiqueta)?.cantidad ?? 0
+  const disponibleVariante = variante ? variante.disponible : (product?.disponible ?? false)
 
   return (
     <Container>
@@ -80,6 +87,47 @@ export default function Producto() {
               {!product.disponible && (
                 <p className="w-fit rounded-full bg-bordo/10 px-3 py-1 text-xs font-bold">Sin stock</p>
               )}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1 rounded-full border border-linea bg-white p-1 shadow-card">
+                    <button
+                      type="button"
+                      onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+                      aria-label="Quitar uno"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold text-bordo transition hover:bg-crema-claro"
+                    >
+                      −
+                    </button>
+                    <span className="w-8 text-center font-extrabold" aria-live="polite">
+                      {cantidad}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCantidad((c) => c + 1)}
+                      aria-label="Agregar uno"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold text-bordo transition hover:bg-crema-claro"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => agregar(product.id, etiqueta, cantidad)}
+                    disabled={!disponibleVariante}
+                    className="btn-pill disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {disponibleVariante ? 'Agregar al carrito' : 'Sin stock'}
+                  </button>
+                </div>
+                {enCarrito > 0 && (
+                  <p className="text-sm font-semibold text-verde">
+                    Ya tenés {enCarrito} en el carrito ·{' '}
+                    <Link to="/carrito" className="underline underline-offset-4">
+                      Ver carrito
+                    </Link>
+                  </p>
+                )}
+              </div>
               {product.etiquetas.length > 0 && (
                 <ul className="flex flex-wrap gap-2">
                   {product.etiquetas.map((t) => (
