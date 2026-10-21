@@ -7,6 +7,7 @@ import EditarProducto from './EditarProducto'
 import ListaCategorias from './ListaCategorias'
 import ListaProductos from './ListaProductos'
 import Login from './Login'
+import ActualizarPrecios from './precios/ActualizarPrecios'
 
 type Estado = { tipo: 'cargando' } | { tipo: 'anonimo' } | { tipo: 'sinPermiso'; email: string } | { tipo: 'admin'; email: string }
 
@@ -75,6 +76,7 @@ export default function AdminApp() {
               {[
                 ['/admin', 'Productos'],
                 ['/admin/categorias', 'Categorías'],
+                ['/admin/precios', 'Precios'],
               ].map(([to, label]) => (
                 <NavLink
                   key={to}
@@ -106,6 +108,7 @@ export default function AdminApp() {
           <Route path="categorias" element={<ListaCategorias />} />
           <Route path="categorias/nueva" element={<EditarCategoria />} />
           <Route path="categorias/:id" element={<EditarCategoria />} />
+          <Route path="precios" element={<ActualizarPrecios />} />
           <Route path="*" element={<p>Página no encontrada.</p>} />
         </Routes>
       </main>

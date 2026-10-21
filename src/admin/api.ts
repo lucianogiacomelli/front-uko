@@ -130,3 +130,67 @@ export async function eliminarCategoria(c: Pick<Categoria, 'id' | 'imagen'>) {
   invalidarProductos()
   await borrarImagen(c.imagen)
 }
+
+// --- Actualización de precios desde la lista del proveedor ---
+
+export type VariantePrecio = {
+  id: string
+  etiqueta: string
+  precio: number
+  costo: number | null
+  nombreProveedor: string | null
+}
+export type ProductoPrecio = { id: string; nombre: string; categoriaId: string; margen: number | null; variantes: VariantePrecio[] }
+export type CategoriaPrecio = { id: string; nombre: string; margen: number }
+
+type ProductoPrecioRow = {
+  id: string
+  nombre: string
+  categoria_id: string
+  margen: number | null
+  variantes: { id: string; etiqueta: string; precio: number; costo: number | null; nombre_proveedor: string | null; orden: number }[]
+}
+
+// Productos activos con sus variantes y márgenes
+export async function cargarPrecios(): Promise<{ productos: ProductoPrecio[]; categorias: CategoriaPrecio[] }> {
+  const [ps, cs] = await Promise.all([
+    supabase
+      .from('productos')
+      .select('id, nombre, categoria_id, margen, variantes(id, etiqueta, precio, costo, nombre_proveedor, orden)')
+      .is('eliminado_en', null)
+      .order('nombre')
+      .returns<ProductoPrecioRow[]>(),
+    supabase.from('categorias').select('id, nombre, margen').order('nombre').returns<CategoriaPrecio[]>(),
+  ])
+  if (ps.error) fallo(ps.error)
+  if (cs.error) fallo(cs.error)
+  return {
+    productos: ps.data.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      categoriaId: p.categoria_id,
+      margen: p.margen === null ? null : Number(p.margen),
+      variantes: [...p.variantes]
+        .sort((a, b) => a.orden - b.orden)
+        .map((v) => ({
+          id: v.id,
+          etiqueta: v.etiqueta,
+          precio: Number(v.precio),
+          costo: v.costo === null ? null : Number(v.costo),
+          nombreProveedor: v.nombre_proveedor,
+        })),
+    })),
+    categorias: cs.data.map((c) => ({ ...c, margen: Number(c.margen) })),
+  }
+}
+
+export async function aplicarPrecios(
+  variantes: { id: string; costo: number; precio: number; nombre_proveedor: string }[],
+  categorias: { id: string; margen: number }[],
+  productos: { id: string; margen: number | null }[],
+): Promise<number> {
+  const { data, error } = await supabase.rpc('aplicar_precios', { variantes, categorias, productos })
+  if (error) fallo(error)
+  invalidarProductos()
+  return data as number
+}
