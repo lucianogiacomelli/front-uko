@@ -17,14 +17,19 @@ async function fetchCatalogo(): Promise<Catalogo> {
   return { products, categorias }
 }
 
+// Arranca (o reutiliza) la carga del catálogo. main.tsx la usa para sostener la pantalla de carga hasta tenerlo.
+export function cargarCatalogo(): Promise<Catalogo> {
+  cache ??= fetchCatalogo()
+  return cache
+}
+
 export function useProducts() {
   const [catalogo, setCatalogo] = useState<Catalogo>({ products: [], categorias: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    cache ??= fetchCatalogo()
-    cache
+    cargarCatalogo()
       .then(setCatalogo)
       .catch((e: Error) => {
         cache = null
