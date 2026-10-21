@@ -154,9 +154,15 @@ export default function Productos() {
         )}
       </div>
 
-      {hint && !loading && !error && groups.length > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center">
-          <span className="fade-up flex items-center gap-2 rounded-full bg-bordo px-5 py-2.5 text-sm font-bold text-crema shadow-lg">
+      {/* Siempre montado: aparece y se va con un fundido en vez de cortarse de golpe */}
+      {!loading && !error && groups.length > 0 && (
+        <div
+          aria-hidden={!hint}
+          className={`pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center transition duration-500 ease-out motion-reduce:transition-none ${
+            hint ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+          }`}
+        >
+          <span className="flex items-center gap-2 rounded-full bg-bordo px-5 py-2.5 text-sm font-bold text-crema shadow-lg">
             Desliza para ver los productos
             <span className="scroll-hint-arrow inline-block" aria-hidden>
               ↓
