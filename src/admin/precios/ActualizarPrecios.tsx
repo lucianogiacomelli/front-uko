@@ -3,6 +3,7 @@ import { price } from '../../data/format'
 import { aplicarPrecios, cargarPrecios, type CategoriaPrecio, type ProductoPrecio, type VariantePrecio } from '../api'
 import { Aviso } from '../ui'
 import { firma, masParecidas, type Firma } from './coincidencias'
+import { exportarListaPdf } from './exportarLista'
 import { leerPdf, type FilaProveedor } from './pdf'
 
 // Desde este puntaje se ofrece la fila más parecida para aceptar con un clic
@@ -36,6 +37,7 @@ export default function ActualizarPrecios() {
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [exportando, setExportando] = useState(false)
 
   function cargar() {
     cargarPrecios()
@@ -143,6 +145,18 @@ export default function ActualizarPrecios() {
     setMargenLista('')
   }
 
+  async function exportar() {
+    setExportando(true)
+    setError(null)
+    try {
+      await exportarListaPdf()
+    } catch {
+      setError('No se pudo generar el PDF de la lista de precios.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   async function guardar() {
     if (!datos || !filas) return
     const malos = [
@@ -187,7 +201,17 @@ export default function ActualizarPrecios() {
 
   return (
     <section className={seleccion.size > 0 ? 'pb-24' : ''}>
-      <h1 className="text-2xl font-extrabold tracking-tight">Actualizar precios</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight">Actualizar precios</h1>
+        <button
+          type="button"
+          onClick={exportar}
+          disabled={exportando}
+          className="rounded-full border border-verde px-5 py-2.5 text-sm font-bold text-verde transition hover:bg-verde-claro disabled:opacity-60"
+        >
+          {exportando ? 'Generando PDF…' : 'Descargar lista de precios (PDF)'}
+        </button>
+      </div>
       <p className="mt-1 mb-5 max-w-2xl text-sm text-bordo/70">
         Subí la lista del proveedor en PDF. Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más
         el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.
