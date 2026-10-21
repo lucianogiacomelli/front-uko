@@ -8,6 +8,8 @@ export interface Variante {
 export interface Product {
   id: string
   nombre: string
+  // Slug de la categoría (se usa en /categoria/:id) y su nombre para mostrar
+  categoriaId: string
   categoria: string
   // Precio más bajo entre las variantes (se muestra como "Desde")
   precio: number
@@ -20,4 +22,10 @@ export interface Product {
   enOferta: boolean
   // Porcentaje de descuento (0-100), solo aplica si enOferta es true
   descuento: number
+}
+
+export interface Categoria {
+  id: string
+  nombre: string
+  imagen: string
 }

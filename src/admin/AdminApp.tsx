@@ -1,8 +1,10 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes } from 'react-router'
+import { Link, NavLink, Route, Routes } from 'react-router'
 import { supabase } from '../lib/supabase'
+import EditarCategoria from './EditarCategoria'
 import EditarProducto from './EditarProducto'
+import ListaCategorias from './ListaCategorias'
 import ListaProductos from './ListaProductos'
 import Login from './Login'
 
@@ -65,9 +67,26 @@ export default function AdminApp() {
     <div className="min-h-screen bg-crema-claro">
       <header className="border-b border-linea bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link to="/admin" className="text-lg font-black tracking-tight">
-            Uko · Admin
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link to="/admin" className="text-lg font-black tracking-tight">
+              Uko · Admin
+            </Link>
+            <nav className="flex gap-1 text-sm font-bold">
+              {[
+                ['/admin', 'Productos'],
+                ['/admin/categorias', 'Categorías'],
+              ].map(([to, label]) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/admin'}
+                  className={({ isActive }) => `rounded-full px-3 py-1.5 ${isActive ? 'bg-verde-claro' : 'text-bordo/70 hover:text-bordo'}`}
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
           <div className="flex items-center gap-4 text-sm font-semibold">
             <Link to="/" className="text-verde hover:underline">
               Ver tienda
@@ -84,6 +103,9 @@ export default function AdminApp() {
           <Route index element={<ListaProductos />} />
           <Route path="producto/nuevo" element={<EditarProducto />} />
           <Route path="producto/:id" element={<EditarProducto />} />
+          <Route path="categorias" element={<ListaCategorias />} />
+          <Route path="categorias/nueva" element={<EditarCategoria />} />
+          <Route path="categorias/:id" element={<EditarCategoria />} />
           <Route path="*" element={<p>Página no encontrada.</p>} />
         </Routes>
       </main>

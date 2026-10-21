@@ -1,14 +1,15 @@
 import { supabase } from '../lib/supabase'
-import type { Product } from '../types/product'
+import type { Categoria, Product } from '../types/product'
 
-// Columnas que se piden a Supabase: el producto con sus variantes en orden
+// Columnas que se piden a Supabase: el producto con su categoría y sus variantes en orden
 export const PRODUCTO_SELECT =
-  'id, nombre, categoria, descripcion, imagen, etiquetas, disponible, en_oferta, descuento, eliminado_en, variantes(etiqueta, precio, disponible, orden)'
+  'id, nombre, categoria_id, categoria:categorias(nombre), descripcion, imagen, etiquetas, disponible, en_oferta, descuento, eliminado_en, variantes(etiqueta, precio, disponible, orden)'
 
 export type ProductoRow = {
   id: string
   nombre: string
-  categoria: string
+  categoria_id: string
+  categoria: { nombre: string }
   descripcion: string
   imagen: string
   etiquetas: string[]
@@ -26,7 +27,8 @@ export function toProduct(row: ProductoRow): Product {
   return {
     id: row.id,
     nombre: row.nombre,
-    categoria: row.categoria,
+    categoriaId: row.categoria_id,
+    categoria: row.categoria.nombre,
     // Precio más bajo entre las variantes (se muestra como "Desde")
     precio: variantes.length ? Math.min(...variantes.map((v) => v.precio)) : 0,
     descripcion: row.descripcion,
@@ -49,6 +51,12 @@ export async function fetchProducts(): Promise<Product[]> {
     .returns<ProductoRow[]>()
   if (error) throw new Error('No se pudo cargar el catálogo')
   return data.map(toProduct)
+}
+
+export async function fetchCategorias(): Promise<Categoria[]> {
+  const { data, error } = await supabase.from('categorias').select('id, nombre, imagen').order('nombre')
+  if (error) throw new Error('No se pudo cargar el catálogo')
+  return data
 }
 
 export function slugify(text: string): string {

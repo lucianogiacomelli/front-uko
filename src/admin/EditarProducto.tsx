@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { slugify } from '../data/products'
-import type { Product, Variante } from '../types/product'
-import { borrarImagen, guardarProducto, listarProductos, obtenerProducto, subirImagen } from './api'
+import type { Categoria, Product, Variante } from '../types/product'
+import { guardarConImagen, guardarProducto, listarCategorias, obtenerProducto } from './api'
+import ImagenInput, { type ArchivoImagen } from './ImagenInput'
+import { Aviso, Campo } from './ui'
 
 // Variantes en edición: el precio queda como texto hasta guardar
 type VarianteForm = { etiqueta: string; precio: string; disponible: boolean }
@@ -10,7 +12,7 @@ type VarianteForm = { etiqueta: string; precio: string; disponible: boolean }
 type Form = {
   id: string
   nombre: string
-  categoria: string
+  categoriaId: string
   descripcion: string
   etiquetas: string
   disponible: boolean
@@ -23,7 +25,7 @@ type Form = {
 const VACIO: Form = {
   id: '',
   nombre: '',
-  categoria: '',
+  categoriaId: '',
   descripcion: '',
   etiquetas: '',
   disponible: true,
@@ -33,13 +35,11 @@ const VACIO: Form = {
   variantes: [{ etiqueta: 'Único', precio: '', disponible: true }],
 }
 
-const MAX_IMAGEN = 5 * 1024 * 1024
-
 function aForm(p: Product): Form {
   return {
     id: p.id,
     nombre: p.nombre,
-    categoria: p.categoria,
+    categoriaId: p.categoriaId,
     descripcion: p.descripcion,
     etiquetas: p.etiquetas.join(', '),
     disponible: p.disponible,
@@ -51,11 +51,12 @@ function aForm(p: Product): Form {
 }
 
 // Valida y arma el producto. Devuelve el primer error encontrado.
-function aProducto(f: Form): Product | string {
+function aProducto(f: Form, categorias: Categoria[]): Product | string {
   const id = f.id.trim()
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) return 'El id solo puede tener minúsculas, números y guiones.'
   if (!f.nombre.trim()) return 'Falta el nombre.'
-  if (!f.categoria.trim()) return 'Falta la categoría.'
+  const categoria = categorias.find((c) => c.id === f.categoriaId)
+  if (!categoria) return 'Elegí una categoría.'
   const descuento = Number(f.descuento)
   if (!Number.isInteger(descuento) || descuento < 0 || descuento > 100) return 'El descuento va de 0 a 100.'
   if (f.variantes.length === 0) return 'Agregá al menos una presentación.'
@@ -70,7 +71,8 @@ function aProducto(f: Form): Product | string {
   return {
     id,
     nombre: f.nombre.trim(),
-    categoria: f.categoria.trim(),
+    categoriaId: categoria.id,
+    categoria: categoria.nombre,
     descripcion: f.descripcion.trim(),
     imagen: f.imagen,
     etiquetas: [...new Set(f.etiquetas.split(',').map((t) => t.trim()).filter(Boolean))],
@@ -86,20 +88,21 @@ export default function EditarProducto() {
   const { id: idRuta } = useParams()
   const nuevo = idRuta === undefined
   const navigate = useNavigate()
+  // La lista pasa sus filtros para volver a la misma página
+  const volver = `/admin${(useLocation().state as { volver?: string } | null)?.volver ?? ''}`
   const [form, setForm] = useState<Form | null>(nuevo ? VACIO : null)
   const [idEditado, setIdEditado] = useState(false)
   // Imagen guardada en la base: se borra del storage si se reemplaza o se quita
   const [imagenOriginal, setImagenOriginal] = useState('')
-  const [categorias, setCategorias] = useState<string[]>([])
-  // Imagen elegida y no subida todavía, con su URL temporal para la vista previa
-  const [archivo, setArchivo] = useState<{ file: File; url: string } | null>(null)
+  const [archivo, setArchivo] = useState<ArchivoImagen | null>(null)
+  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
-    listarProductos()
-      .then((ps) => setCategorias([...new Set(ps.map((p) => p.categoria))].sort()))
-      .catch(() => {})
+    listarCategorias()
+      .then(setCategorias)
+      .catch((e: Error) => setError(e.message))
     if (nuevo) return
     obtenerProducto(idRuta)
       .then((p) => {
@@ -109,12 +112,6 @@ export default function EditarProducto() {
       })
       .catch((e: Error) => setError(e.message))
   }, [idRuta, nuevo])
-
-  // Libera la URL temporal de la vista previa al cambiarla o salir
-  useEffect(() => {
-    if (!archivo) return
-    return () => URL.revokeObjectURL(archivo.url)
-  }, [archivo])
 
   if (!form) return <p>{error ?? 'Cargando…'}</p>
 
@@ -127,44 +124,28 @@ export default function EditarProducto() {
     setForm({ ...form!, nombre, id: nuevo && !idEditado ? slugify(nombre) : form!.id })
   }
 
-  function elegirArchivo(file: File | undefined) {
-    if (!file) return
-    if (!file.type.startsWith('image/')) return setError('El archivo tiene que ser una imagen.')
-    if (file.size > MAX_IMAGEN) return setError('La imagen pesa más de 5 MB.')
-    setError(null)
-    setArchivo({ file, url: URL.createObjectURL(file) })
-  }
-
   async function guardar(e: FormEvent) {
     e.preventDefault()
-    const producto = aProducto(form!)
+    const producto = aProducto(form!, categorias)
     if (typeof producto === 'string') return setError(producto)
     setGuardando(true)
     setError(null)
-    let subida: string | null = null
     try {
-      if (archivo) {
-        subida = await subirImagen(producto.id, archivo.file)
-        producto.imagen = subida
-      }
-      await guardarProducto(producto, nuevo)
-      if (imagenOriginal && imagenOriginal !== producto.imagen) await borrarImagen(imagenOriginal)
-      navigate('/admin')
+      await guardarConImagen(`productos/${producto.id}`, archivo?.file ?? null, producto.imagen, imagenOriginal, (imagen) =>
+        guardarProducto({ ...producto, imagen }, nuevo),
+      )
+      navigate(volver)
     } catch (err) {
-      // Si falló el guardado, no dejar la imagen nueva huérfana
-      if (subida) await borrarImagen(subida)
       setError((err as Error).message)
       setGuardando(false)
     }
   }
 
-  const imagenVista = archivo?.url ?? form.imagen
-
   return (
     <form onSubmit={guardar} className="mx-auto max-w-3xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link to="/admin" className="text-sm font-semibold text-verde hover:underline">
+          <Link to={volver} className="text-sm font-semibold text-verde hover:underline">
             ← Productos
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight">{nuevo ? 'Nuevo producto' : form.nombre || 'Editar producto'}</h1>
@@ -194,12 +175,16 @@ export default function EditarProducto() {
             />
           </Campo>
           <Campo label="Categoría">
-            <input required list="categorias" value={form.categoria} onChange={(e) => set('categoria', e.target.value)} className="campo" />
-            <datalist id="categorias">
+            <select required value={form.categoriaId} onChange={(e) => set('categoriaId', e.target.value)} className="campo">
+              <option value="" disabled>
+                Elegí una categoría
+              </option>
               {categorias.map((c) => (
-                <option key={c} value={c} />
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
               ))}
-            </datalist>
+            </select>
           </Campo>
           <Campo label="Etiquetas" ayuda="Separadas por coma. Ej: sin TACC, vegano">
             <input value={form.etiquetas} onChange={(e) => set('etiquetas', e.target.value)} className="campo" />
@@ -210,38 +195,16 @@ export default function EditarProducto() {
           <textarea rows={4} value={form.descripcion} onChange={(e) => set('descripcion', e.target.value)} className="campo" />
         </Campo>
 
-        <fieldset>
-          <legend className="mb-2 text-sm font-semibold">Imagen</legend>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-xl border border-linea bg-crema-claro">
-              {imagenVista ? (
-                <img src={imagenVista} alt="" className="h-full w-full object-contain" />
-              ) : (
-                <span className="text-xs text-bordo/50">Sin imagen</span>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 text-sm">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/avif"
-                onChange={(e) => elegirArchivo(e.target.files?.[0])}
-                className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde-claro file:px-4 file:py-2 file:font-bold file:text-bordo"
-              />
-              {imagenVista && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setArchivo(null)
-                    set('imagen', '')
-                  }}
-                  className="self-start font-semibold text-bordo/70 hover:text-bordo"
-                >
-                  Quitar imagen
-                </button>
-              )}
-            </div>
-          </div>
-        </fieldset>
+        <ImagenInput
+          imagen={form.imagen}
+          archivo={archivo}
+          onArchivo={(a) => {
+            setError(null)
+            setArchivo(a)
+          }}
+          onQuitar={() => set('imagen', '')}
+          onError={setError}
+        />
 
         <fieldset>
           <legend className="mb-2 text-sm font-semibold">Presentaciones y precios</legend>
@@ -313,14 +276,10 @@ export default function EditarProducto() {
         </div>
       </div>
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
-          {error}
-        </p>
-      )}
+      <Aviso mensaje={error} />
 
       <div className="mt-5 flex justify-end gap-3">
-        <Link to="/admin" className="rounded-full px-6 py-3 text-sm font-bold text-bordo/70 hover:text-bordo">
+        <Link to={volver} className="rounded-full px-6 py-3 text-sm font-bold text-bordo/70 hover:text-bordo">
           Cancelar
         </Link>
         <button type="submit" disabled={guardando} className="btn-pill disabled:opacity-60">
@@ -328,15 +287,5 @@ export default function EditarProducto() {
         </button>
       </div>
     </form>
-  )
-}
-
-function Campo({ label, ayuda, children }: { label: string; ayuda?: string; children: React.ReactNode }) {
-  return (
-    <label className="block text-sm font-semibold">
-      <span className="mb-1 block">{label}</span>
-      {children}
-      {ayuda && <span className="mt-1 block text-xs font-medium text-bordo/60">{ayuda}</span>}
-    </label>
   )
 }

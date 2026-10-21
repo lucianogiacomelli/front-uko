@@ -5,7 +5,6 @@ import { useCarrito } from '../carrito/CarritoContext'
 import { price } from '../data/format'
 import { enOferta, precioConOferta } from '../data/ofertas'
 import { etiquetaPara } from '../data/pedido'
-import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
 
 export default function Producto() {
@@ -29,7 +28,7 @@ export default function Producto() {
       {product && (
         <article className="flex flex-col gap-6">
           <Link
-            to={`/categoria/${slugify(product.categoria)}`}
+            to={`/categoria/${product.categoriaId}`}
             className="text-sm font-bold text-verde hover:underline"
           >
             ← {product.categoria}

@@ -1,34 +1,60 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { price } from '../data/format'
 import { slugify } from '../data/products'
-import { eliminarDefinitivo, listarProductos, marcarEliminado, type ProductoAdmin } from './api'
+import type { Categoria } from '../types/product'
+import { eliminarDefinitivo, listarCategorias, listarProductos, marcarEliminado, type ProductoAdmin } from './api'
+import { Aviso } from './ui'
 
-type Vista = 'activos' | 'eliminados'
+const POR_PAGINA = 25
 
 const normalize = (s: string) => slugify(s).replace(/-/g, ' ')
 
 export default function ListaProductos() {
   const [productos, setProductos] = useState<ProductoAdmin[] | null>(null)
+  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [vista, setVista] = useState<Vista>('activos')
+  // Búsqueda, categoría, pestaña y página viven en la URL: al volver de editar se mantienen
+  const [params, setParams] = useSearchParams()
+  const busqueda = params.get('q') ?? ''
+  const categoria = params.get('cat') ?? ''
+  const eliminadosVista = params.get('vista') === 'eliminados'
+  const pagina = Math.max(1, Number(params.get('pag')) || 1)
   // Producto con el borrado definitivo pidiendo confirmación
   const [confirmar, setConfirmar] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
 
   useEffect(() => {
-    listarProductos()
-      .then(setProductos)
+    Promise.all([listarProductos(), listarCategorias()])
+      .then(([ps, cs]) => {
+        setProductos(ps)
+        setCategorias(cs)
+      })
       .catch((e: Error) => setError(e.message))
   }, [])
 
-  async function accion(id: string, fn: () => Promise<void>, quitar: boolean) {
+  // Cambiar un filtro vuelve a la página 1
+  function filtrar(cambios: Record<string, string>) {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [k, v] of Object.entries(cambios)) {
+          if (v) next.set(k, v)
+          else next.delete(k)
+        }
+        if (!('pag' in cambios)) next.delete('pag')
+        return next
+      },
+      { replace: true },
+    )
+  }
+
+  async function accion(id: string, fn: () => Promise<void>) {
     setOcupado(id)
     setError(null)
     try {
       await fn()
-      setProductos(quitar ? (ps) => ps?.filter((p) => p.id !== id) ?? null : await listarProductos())
+      setProductos(await listarProductos())
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -37,21 +63,26 @@ export default function ListaProductos() {
     }
   }
 
-  if (!productos) return <p>{error ?? 'Cargando…'}</p>
+  if (!productos) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
 
   const needle = normalize(busqueda)
   const eliminados = productos.filter((p) => p.eliminadoEn).length
-  const visibles = productos.filter(
+  const filtrados = productos.filter(
     (p) =>
-      (vista === 'eliminados') === Boolean(p.eliminadoEn) &&
-      (!needle || normalize(`${p.nombre} ${p.categoria} ${p.id}`).includes(needle)),
+      eliminadosVista === Boolean(p.eliminadoEn) &&
+      (!categoria || p.categoriaId === categoria) &&
+      (!needle || normalize(`${p.nombre} ${p.id}`).includes(needle)),
   )
+  const paginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
+  const actual = Math.min(pagina, paginas)
+  const visibles = filtrados.slice((actual - 1) * POR_PAGINA, actual * POR_PAGINA)
+  const volver = { volver: params.size ? `?${params}` : '' }
 
   return (
     <section>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">Productos</h1>
-        <Link to="/admin/producto/nuevo" className="btn-pill">
+        <Link to="/admin/producto/nuevo" state={volver} className="btn-pill">
           + Nuevo producto
         </Link>
       </div>
@@ -59,125 +90,132 @@ export default function ListaProductos() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="search"
-          placeholder="Buscar por nombre, categoría o id"
+          placeholder="Buscar por nombre"
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="campo max-w-sm"
+          onChange={(e) => filtrar({ q: e.target.value })}
+          className="campo w-full sm:max-w-xs"
           aria-label="Buscar productos"
         />
+        <select
+          value={categoria}
+          onChange={(e) => filtrar({ cat: e.target.value })}
+          className="campo w-full sm:w-64"
+          aria-label="Filtrar por categoría"
+        >
+          <option value="">Todas las categorías</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
         <div className="flex rounded-full border border-linea bg-white p-1 text-sm font-bold" role="tablist">
-          {(['activos', 'eliminados'] as const).map((v) => (
+          {[
+            ['', `Activos (${productos.length - eliminados})`],
+            ['eliminados', `Eliminados (${eliminados})`],
+          ].map(([v, label]) => (
             <button
               key={v}
               type="button"
               role="tab"
-              aria-selected={vista === v}
-              onClick={() => setVista(v)}
-              className={`rounded-full px-4 py-1.5 ${vista === v ? 'bg-verde text-crema' : 'text-bordo/70'}`}
+              aria-selected={eliminadosVista === Boolean(v)}
+              onClick={() => filtrar({ vista: v })}
+              className={`rounded-full px-4 py-1.5 ${eliminadosVista === Boolean(v) ? 'bg-verde text-crema' : 'text-bordo/70'}`}
             >
-              {v === 'activos' ? `Activos (${productos.length - eliminados})` : `Eliminados (${eliminados})`}
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {error && (
-        <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
-          {error}
-        </p>
-      )}
+      <Aviso mensaje={error} />
 
-      <div className="overflow-x-auto rounded-2xl border border-linea bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-linea text-xs tracking-wide text-bordo/60 uppercase">
-            <tr>
-              <th className="px-4 py-3">Producto</th>
-              <th className="px-4 py-3">Categoría</th>
-              <th className="px-4 py-3 text-right">Desde</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibles.map((p) => (
-              <tr key={p.id} className="border-b border-linea last:border-0">
-                <td className="px-4 py-3">
-                  <Link to={`/admin/producto/${p.id}`} className="font-bold hover:text-verde hover:underline">
-                    {p.nombre}
+      <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-white">
+        {visibles.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-linea bg-crema-claro">
+              {p.imagen && <img src={p.imagen} alt="" loading="lazy" className="h-full w-full object-contain" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <Link to={`/admin/producto/${p.id}`} state={volver} className="font-bold hover:text-verde hover:underline">
+                {p.nombre}
+              </Link>
+              <p className="text-xs text-bordo/60">
+                {p.categoria}
+                {p.variantes.length > 1 && ` · ${p.variantes.length} presentaciones`}
+                {!p.disponible && ' · Sin stock'}
+                {p.enOferta && p.descuento > 0 && ` · −${p.descuento}%`}
+              </p>
+            </div>
+            <span className="text-sm font-bold tabular-nums">{price.format(p.precio)}</span>
+            <div className="flex w-full justify-end gap-3 text-sm font-semibold whitespace-nowrap sm:w-auto">
+              {ocupado === p.id ? (
+                <span className="text-bordo/60">Procesando…</span>
+              ) : !eliminadosVista ? (
+                <>
+                  <Link to={`/admin/producto/${p.id}`} state={volver} className="text-verde hover:underline">
+                    Editar
                   </Link>
-                  {p.variantes.length > 1 && (
-                    <span className="ml-2 text-xs text-bordo/60">{p.variantes.length} presentaciones</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-bordo/80">{p.categoria}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{price.format(p.precio)}</td>
-                <td className="px-4 py-3">
-                  {!p.disponible && <Chip>Sin stock</Chip>}
-                  {p.enOferta && p.descuento > 0 && <Chip>−{p.descuento}%</Chip>}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-3 font-semibold whitespace-nowrap">
-                    {ocupado === p.id ? (
-                      <span className="text-bordo/60">Procesando…</span>
-                    ) : vista === 'activos' ? (
-                      <>
-                        <Link to={`/admin/producto/${p.id}`} className="text-verde hover:underline">
-                          Editar
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => accion(p.id, () => marcarEliminado(p.id, true), false)}
-                          className="text-bordo/70 hover:text-bordo"
-                        >
-                          Eliminar
-                        </button>
-                      </>
-                    ) : confirmar === p.id ? (
-                      <>
-                        <span className="text-red-700">¿Borrar para siempre?</span>
-                        <button
-                          type="button"
-                          onClick={() => accion(p.id, () => eliminarDefinitivo(p), true)}
-                          className="text-red-700 underline"
-                        >
-                          Sí, borrar
-                        </button>
-                        <button type="button" onClick={() => setConfirmar(null)} className="text-bordo/70">
-                          Cancelar
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => accion(p.id, () => marcarEliminado(p.id, false), false)}
-                          className="text-verde hover:underline"
-                        >
-                          Restaurar
-                        </button>
-                        <button type="button" onClick={() => setConfirmar(p.id)} className="text-red-700 hover:underline">
-                          Borrar definitivo
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {visibles.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-bordo/60">
-                  No hay productos.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <button type="button" onClick={() => accion(p.id, () => marcarEliminado(p.id, true))} className="text-bordo/70 hover:text-bordo">
+                    Eliminar
+                  </button>
+                </>
+              ) : confirmar === p.id ? (
+                <>
+                  <span className="text-red-700">¿Borrar para siempre?</span>
+                  <button type="button" onClick={() => accion(p.id, () => eliminarDefinitivo(p))} className="text-red-700 underline">
+                    Sí, borrar
+                  </button>
+                  <button type="button" onClick={() => setConfirmar(null)} className="text-bordo/70">
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => accion(p.id, () => marcarEliminado(p.id, false))} className="text-verde hover:underline">
+                    Restaurar
+                  </button>
+                  <button type="button" onClick={() => setConfirmar(p.id)} className="text-red-700 hover:underline">
+                    Borrar definitivo
+                  </button>
+                </>
+              )}
+            </div>
+          </li>
+        ))}
+        {visibles.length === 0 && <li className="px-4 py-6 text-center text-bordo/60">No hay productos.</li>}
+      </ul>
+
+      <nav className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Paginación">
+        <span className="text-bordo/70">
+          {filtrados.length === 0
+            ? '0 productos'
+            : `Mostrando ${(actual - 1) * POR_PAGINA + 1}–${(actual - 1) * POR_PAGINA + visibles.length} de ${filtrados.length}`}
+        </span>
+        {paginas > 1 && (
+          <div className="flex items-center gap-2 font-bold">
+            <button
+              type="button"
+              disabled={actual === 1}
+              onClick={() => filtrar({ pag: String(actual - 1) })}
+              className="rounded-full border border-linea bg-white px-4 py-1.5 disabled:opacity-40"
+            >
+              ← Anterior
+            </button>
+            <span className="px-2">
+              {actual} / {paginas}
+            </span>
+            <button
+              type="button"
+              disabled={actual === paginas}
+              onClick={() => filtrar({ pag: String(actual + 1) })}
+              className="rounded-full border border-linea bg-white px-4 py-1.5 disabled:opacity-40"
+            >
+              Siguiente →
+            </button>
+          </div>
+        )}
+      </nav>
     </section>
   )
-}
-
-function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="mr-1 rounded-full bg-verde-claro px-2 py-0.5 text-xs font-bold">{children}</span>
 }
