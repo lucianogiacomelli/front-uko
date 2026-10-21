@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { buscarProductos } from '../data/busqueda'
 import { price } from '../data/format'
-import { precioConOferta } from '../data/ofertas'
+import { enOferta, precioConOferta } from '../data/ofertas'
 import { useProducts } from '../data/useProducts'
 import type { Product } from '../types/product'
 import { SearchIcon } from './Icons'
@@ -60,6 +60,7 @@ export default function Buscador() {
   const resultados = useMemo(() => buscarProductos(products, texto), [products, texto])
   const visibles = resultados.slice(0, MAX_SUGERENCIAS)
   const mostrar = abierto && !enProductos && texto.trim() !== ''
+  const enOfertaTotal = resultados.filter(enOferta).length
 
   function irAProducto(p: Product) {
     setAbierto(false)
@@ -124,37 +125,46 @@ export default function Buscador() {
           {visibles.length === 0 ? (
             <p className="px-4 py-4 text-sm text-bordo/70">Sin resultados para “{texto.trim()}”.</p>
           ) : (
-            <ul id="sugerencias-busqueda" role="listbox" aria-label="Productos que coinciden" className="max-h-[60vh] overflow-y-auto py-1">
-              {visibles.map((p, i) => (
-                <li
-                  key={p.id}
-                  id={`sugerencia-${p.id}`}
-                  role="option"
-                  aria-selected={i === activo}
-                  // Evita que el campo pierda el foco (y se cierre la lista) antes del clic
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => irAProducto(p)}
-                  onMouseEnter={() => setActivo(i)}
-                  className={`flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors ${i === activo ? 'bg-verde-claro' : ''}`}
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-linea bg-crema-claro">
-                    <img
-                      src={p.imagen || '/brand/isotipo-k.png'}
-                      alt=""
-                      loading="lazy"
-                      className={p.imagen ? 'h-full w-full object-contain' : 'h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply'}
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold">{p.nombre}</span>
-                    <span className="block truncate text-xs text-bordo/60">{p.categoria}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-sm font-bold tabular-nums">
-                    {p.variantes.length > 1 && <span className="block text-[10px] font-semibold text-bordo/50 uppercase">desde</span>}
-                    {price.format(precioConOferta(p.precio, p))}
-                  </span>
-                </li>
-              ))}
+            <ul id="sugerencias-busqueda" role="listbox" aria-label="Productos que coinciden" className="max-h-[60vh] overflow-y-auto pt-2 pb-1">
+              {visibles.map((p, i) => {
+                const oferta = enOferta(p)
+                return (
+                  <li
+                    key={p.id}
+                    id={`sugerencia-${p.id}`}
+                    role="option"
+                    aria-selected={i === activo}
+                    // Evita que el campo pierda el foco (y se cierre la lista) antes del clic
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => irAProducto(p)}
+                    onMouseEnter={() => setActivo(i)}
+                    className={`flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors ${i === activo ? 'bg-verde-claro' : ''}`}
+                  >
+                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-linea bg-crema-claro">
+                      {oferta && (
+                        <span className="absolute -top-1 -left-1.5 z-10 rounded-full bg-bordo px-1.5 py-0.5 text-[10px] leading-none font-extrabold text-crema shadow">
+                          −{p.descuento}%
+                        </span>
+                      )}
+                      <img
+                        src={p.imagen || '/brand/isotipo-k.png'}
+                        alt=""
+                        loading="lazy"
+                        className={p.imagen ? 'h-full w-full rounded-lg object-contain' : 'h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply'}
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">{p.nombre}</span>
+                      <span className="block truncate text-xs text-bordo/60">{p.categoria}</span>
+                    </span>
+                    <span className="shrink-0 text-right text-sm font-bold tabular-nums">
+                      {p.variantes.length > 1 && <span className="block text-[10px] font-semibold text-bordo/50 uppercase">desde</span>}
+                      {oferta && <span className="block text-[11px] font-semibold text-bordo/50 line-through">{price.format(p.precio)}</span>}
+                      <span className={oferta ? 'text-verde' : ''}>{price.format(precioConOferta(p.precio, p))}</span>
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           )}
           <button
@@ -166,6 +176,11 @@ export default function Buscador() {
             {resultados.length > 0
               ? `Ver ${resultados.length === 1 ? 'el resultado' : `los ${resultados.length} resultados`} →`
               : 'Ver todos los productos →'}
+            {enOfertaTotal > 0 && (
+              <span className="ml-2 rounded-full bg-bordo px-2 py-0.5 text-[11px] font-extrabold text-crema">
+                {enOfertaTotal} en oferta
+              </span>
+            )}
           </button>
         </div>
       )}
