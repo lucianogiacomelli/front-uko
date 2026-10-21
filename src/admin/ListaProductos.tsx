@@ -4,7 +4,7 @@ import { price } from '../data/format'
 import { slugify } from '../data/products'
 import type { Categoria } from '../types/product'
 import { eliminarDefinitivo, listarCategorias, listarProductos, marcarEliminado, type ProductoAdmin } from './api'
-import { Aviso } from './ui'
+import { Aviso, Cargando, Spinner } from './ui'
 
 const POR_PAGINA = 25
 
@@ -63,7 +63,7 @@ export default function ListaProductos() {
     }
   }
 
-  if (!productos) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
+  if (!productos) return error ? <Aviso mensaje={error} /> : <Cargando filas={8} />
 
   const needle = normalize(busqueda)
   const eliminados = productos.filter((p) => p.eliminadoEn).length
@@ -130,9 +130,9 @@ export default function ListaProductos() {
 
       <Aviso mensaje={error} />
 
-      <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-white">
+      <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-white shadow-card">
         {visibles.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+          <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-crema-claro">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-linea bg-crema-claro">
               {p.imagen && <img src={p.imagen} alt="" loading="lazy" className="h-full w-full object-contain" />}
             </div>
@@ -150,7 +150,10 @@ export default function ListaProductos() {
             <span className="text-sm font-bold tabular-nums">{price.format(p.precio)}</span>
             <div className="flex w-full justify-end gap-3 text-sm font-semibold whitespace-nowrap sm:w-auto">
               {ocupado === p.id ? (
-                <span className="text-bordo/60">Procesando…</span>
+                <span className="inline-flex items-center gap-2 text-bordo/60">
+                  <Spinner />
+                  Procesando…
+                </span>
               ) : !eliminadosVista ? (
                 <>
                   <Link to={`/admin/producto/${p.id}`} state={volver} className="text-verde hover:underline">

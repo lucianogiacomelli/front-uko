@@ -27,7 +27,7 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
   }
 
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-2 text-sm font-semibold">Imagen</legend>
       <div className="flex flex-wrap items-center gap-4">
         <div
@@ -39,7 +39,7 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
             <span className="text-xs text-bordo/50">Sin imagen</span>
           )}
         </div>
-        <div className="flex flex-col gap-2 text-sm">
+        <div className="flex min-w-0 flex-col gap-2 text-sm">
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,image/avif"
@@ -47,7 +47,7 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
               elegir(e.target.files?.[0])
               e.target.value = ''
             }}
-            className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde-claro file:px-4 file:py-2 file:font-bold file:text-bordo"
+            className="max-w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde-claro file:px-4 file:py-2 file:font-bold file:text-bordo"
           />
           {vista && (
             <button

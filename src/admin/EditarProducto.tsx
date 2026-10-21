@@ -4,7 +4,7 @@ import { slugify } from '../data/products'
 import type { Categoria, Product, Variante } from '../types/product'
 import { guardarConImagen, guardarProducto, listarCategorias, obtenerProducto } from './api'
 import ImagenInput, { type ArchivoImagen } from './ImagenInput'
-import { Aviso, Campo } from './ui'
+import { Aviso, BarraAcciones, Campo, Cargando, Ocupado } from './ui'
 
 // Variantes en edición: el precio queda como texto hasta guardar
 type VarianteForm = { etiqueta: string; precio: string; disponible: boolean }
@@ -113,7 +113,7 @@ export default function EditarProducto() {
       .catch((e: Error) => setError(e.message))
   }, [idRuta, nuevo])
 
-  if (!form) return <p>{error ?? 'Cargando…'}</p>
+  if (!form) return error ? <Aviso mensaje={error} /> : <Cargando tipo="formulario" />
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm({ ...form, [k]: v })
   const setVariante = (i: number, v: Partial<VarianteForm>) =>
@@ -157,8 +157,8 @@ export default function EditarProducto() {
         )}
       </div>
 
-      <div className="grid gap-5 rounded-2xl border border-linea bg-white p-5 sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 rounded-2xl border border-linea bg-white p-5 shadow-card sm:p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo label="Nombre">
             <input required value={form.nombre} onChange={(e) => cambiarNombre(e.target.value)} className="campo" />
           </Campo>
@@ -206,17 +206,17 @@ export default function EditarProducto() {
           onError={setError}
         />
 
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="mb-2 text-sm font-semibold">Presentaciones y precios</legend>
           <div className="grid gap-2">
             {form.variantes.map((v, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
+              <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-linea p-2 sm:border-0 sm:p-0">
                 <input
                   aria-label="Presentación"
                   placeholder="Ej: 500 g"
                   value={v.etiqueta}
                   onChange={(e) => setVariante(i, { etiqueta: e.target.value })}
-                  className="campo w-auto flex-1"
+                  className="campo min-w-0 basis-full sm:basis-0 sm:flex-1"
                 />
                 <input
                   aria-label="Precio"
@@ -224,7 +224,7 @@ export default function EditarProducto() {
                   inputMode="decimal"
                   value={v.precio}
                   onChange={(e) => setVariante(i, { precio: e.target.value })}
-                  className="campo w-32"
+                  className="campo w-24 flex-1 sm:w-32 sm:flex-none"
                 />
                 <label className="flex items-center gap-1.5 text-sm font-medium">
                   <input type="checkbox" checked={v.disponible} onChange={(e) => setVariante(i, { disponible: e.target.checked })} />
@@ -278,14 +278,16 @@ export default function EditarProducto() {
 
       <Aviso mensaje={error} />
 
-      <div className="mt-5 flex justify-end gap-3">
+      <BarraAcciones>
         <Link to={volver} className="rounded-full px-6 py-3 text-sm font-bold text-bordo/70 hover:text-bordo">
           Cancelar
         </Link>
         <button type="submit" disabled={guardando} className="btn-pill disabled:opacity-60">
-          {guardando ? 'Guardando…' : 'Guardar'}
+          <Ocupado activo={guardando} texto="Guardando…">
+            Guardar
+          </Ocupado>
         </button>
-      </div>
+      </BarraAcciones>
     </form>
   )
 }

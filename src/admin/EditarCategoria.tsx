@@ -4,7 +4,7 @@ import { slugify } from '../data/products'
 import type { Categoria } from '../types/product'
 import { guardarCategoria, guardarConImagen, listarCategorias } from './api'
 import ImagenInput, { type ArchivoImagen } from './ImagenInput'
-import { Aviso, Campo } from './ui'
+import { Aviso, BarraAcciones, Campo, Cargando, Ocupado } from './ui'
 
 export default function EditarCategoria() {
   const { id: idRuta } = useParams()
@@ -28,7 +28,7 @@ export default function EditarCategoria() {
       .catch((e: Error) => setError(e.message))
   }, [idRuta, nueva])
 
-  if (!form) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
+  if (!form) return error ? <Aviso mensaje={error} /> : <Cargando tipo="formulario" filas={2} />
 
   async function guardar(e: FormEvent) {
     e.preventDefault()
@@ -56,7 +56,7 @@ export default function EditarCategoria() {
       </Link>
       <h1 className="mb-5 text-2xl font-extrabold tracking-tight">{nueva ? 'Nueva categoría' : form.nombre || 'Editar categoría'}</h1>
 
-      <div className="grid gap-5 rounded-2xl border border-linea bg-white p-5 sm:p-6">
+      <div className="grid grid-cols-1 gap-5 rounded-2xl border border-linea bg-white p-5 shadow-card sm:p-6">
         <Campo label="Nombre" ayuda={nueva ? undefined : `Dirección: /categoria/${form.id} (no cambia al renombrar)`}>
           <input required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="campo" />
         </Campo>
@@ -75,14 +75,16 @@ export default function EditarCategoria() {
 
       <Aviso mensaje={error} />
 
-      <div className="mt-5 flex justify-end gap-3">
+      <BarraAcciones>
         <Link to="/admin/categorias" className="rounded-full px-6 py-3 text-sm font-bold text-bordo/70 hover:text-bordo">
           Cancelar
         </Link>
         <button type="submit" disabled={guardando} className="btn-pill disabled:opacity-60">
-          {guardando ? 'Guardando…' : 'Guardar'}
+          <Ocupado activo={guardando} texto="Guardando…">
+            Guardar
+          </Ocupado>
         </button>
-      </div>
+      </BarraAcciones>
     </form>
   )
 }

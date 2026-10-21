@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { Ocupado } from './ui'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -19,7 +20,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={entrar} className="w-full max-w-sm rounded-2xl border border-linea bg-white p-6 shadow-card">
+      <form onSubmit={entrar} className="fade-up w-full max-w-sm rounded-2xl border border-linea bg-white p-6 shadow-card">
         <span className="kicker text-verde">Uko</span>
         <h1 className="mt-1 mb-5 text-2xl font-extrabold tracking-tight">Panel de administración</h1>
         <label className="mb-3 block text-sm font-semibold">
@@ -50,7 +51,9 @@ export default function Login() {
           </p>
         )}
         <button type="submit" disabled={enviando} className="btn-pill w-full justify-center disabled:opacity-60">
-          {enviando ? 'Entrando…' : 'Entrar'}
+          <Ocupado activo={enviando} texto="Entrando…">
+            Entrar
+          </Ocupado>
         </button>
       </form>
     </div>

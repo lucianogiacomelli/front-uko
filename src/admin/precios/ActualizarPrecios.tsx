@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { price } from '../../data/format'
 import { aplicarPrecios, cargarPrecios, type CategoriaPrecio, type ProductoPrecio, type VariantePrecio } from '../api'
-import { Aviso } from '../ui'
+import { Aviso, Cargando, Ocupado, Spinner } from '../ui'
 import { firma, masParecidas, normalizar, type Firma } from './coincidencias'
 import { exportarListaDocx, exportarListaPdf } from './exportarLista'
 import { leerLista, type FilaProveedor } from './leerLista'
@@ -148,7 +148,7 @@ export default function ActualizarPrecios() {
     setSugerencias(r.sugerencias)
   }
 
-  if (!datos) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
+  if (!datos) return error ? <Aviso mensaje={error} /> : <Cargando filas={6} />
 
   const margenDe = (p: ProductoPrecio) => (margenProd[p.id] !== '' ? margenProd[p.id] : margenCat[p.categoriaId])
   const final = modo === 'final'
@@ -314,13 +314,15 @@ export default function ActualizarPrecios() {
               disabled={exportando !== null}
               className="rounded-full border border-verde px-4 py-2 text-verde transition hover:bg-verde-claro disabled:opacity-60"
             >
-              {exportando === formato ? 'Generando…' : label}
+              <Ocupado activo={exportando === formato} texto="Generando…">
+                {label}
+              </Ocupado>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap rounded-full border border-linea bg-white p-1 text-sm font-bold sm:w-fit" role="tablist">
+      <div className="mt-4 flex flex-col gap-1 rounded-2xl border border-linea bg-white p-1 text-sm font-bold sm:w-fit sm:flex-row sm:rounded-full" role="tablist">
         {(
           [
             ['proveedor', 'Lista del proveedor (costo + ganancia)'],
@@ -333,7 +335,7 @@ export default function ActualizarPrecios() {
             role="tab"
             aria-selected={modo === m}
             onClick={() => cambiarModo(m)}
-            className={`rounded-full px-4 py-2 ${modo === m ? 'bg-verde text-crema' : 'text-bordo/70 hover:text-bordo'}`}
+            className={`rounded-xl px-4 py-2 transition-colors sm:rounded-full ${modo === m ? 'bg-verde text-crema' : 'text-bordo/70 hover:text-bordo'}`}
           >
             {label}
           </button>
@@ -355,13 +357,18 @@ export default function ActualizarPrecios() {
             agregarPdfs([...(e.target.files ?? [])])
             e.target.value = ''
           }}
-          className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema"
+          className="max-w-full text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema file:transition-colors hover:file:bg-verde-oscuro"
           aria-label={final ? 'Listas con precios finales' : 'PDFs de los proveedores'}
         />
         <span className="text-sm text-bordo/60">
           {final ? 'PDF o Word (.docx). ' : ''}Podés elegir varios archivos juntos o ir agregándolos.
         </span>
-        {leyendo && <span className="text-sm font-semibold">Leyendo…</span>}
+        {leyendo && (
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-verde">
+            <Spinner />
+            Leyendo y buscando tus productos…
+          </span>
+        )}
         {archivos.length > 0 && (
           <ul className="flex w-full flex-wrap gap-2">
             {archivos.map((a) => (
@@ -566,7 +573,9 @@ export default function ActualizarPrecios() {
 
           <div className="mt-6 flex justify-end">
             <button type="button" disabled={guardando || asignadas.length === 0} onClick={guardar} className="btn-pill disabled:opacity-60">
-              {guardando ? 'Guardando…' : `Guardar ${asignadas.length} precios`}
+              <Ocupado activo={guardando} texto="Guardando…">
+                Guardar {asignadas.length} precios
+              </Ocupado>
             </button>
           </div>
         </>

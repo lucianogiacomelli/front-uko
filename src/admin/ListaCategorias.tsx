@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { eliminarCategoria, listarCategorias, type CategoriaAdmin } from './api'
-import { Aviso } from './ui'
+import { Aviso, Cargando, Spinner } from './ui'
 
 export default function ListaCategorias() {
   const [categorias, setCategorias] = useState<CategoriaAdmin[] | null>(null)
@@ -29,7 +29,7 @@ export default function ListaCategorias() {
     }
   }
 
-  if (!categorias) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
+  if (!categorias) return error ? <Aviso mensaje={error} /> : <Cargando filas={8} />
 
   return (
     <section>
@@ -42,9 +42,9 @@ export default function ListaCategorias() {
 
       <Aviso mensaje={error} />
 
-      <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-white">
+      <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl border border-linea bg-white shadow-card">
         {categorias.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+          <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-crema-claro">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-linea bg-crema-claro">
               {c.imagen && <img src={c.imagen} alt="" loading="lazy" className="h-full w-full object-cover" />}
             </div>
@@ -60,7 +60,10 @@ export default function ListaCategorias() {
             </div>
             <div className="flex w-full justify-end gap-3 text-sm font-semibold whitespace-nowrap sm:w-auto">
               {ocupado === c.id ? (
-                <span className="text-bordo/60">Procesando…</span>
+                <span className="inline-flex items-center gap-2 text-bordo/60">
+                  <Spinner />
+                  Procesando…
+                </span>
               ) : confirmar === c.id ? (
                 <>
                   <span className="text-red-700">¿Borrar la categoría?</span>

@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Route, Routes } from 'react-router'
+import { Link, Route, Routes, useLocation } from 'react-router'
 import { supabase } from '../lib/supabase'
 import EditarCategoria from './EditarCategoria'
 import EditarProducto from './EditarProducto'
@@ -8,6 +8,14 @@ import ListaCategorias from './ListaCategorias'
 import ListaProductos from './ListaProductos'
 import Login from './Login'
 import ActualizarPrecios from './precios/ActualizarPrecios'
+import { Spinner } from './ui'
+
+// Secciones del menú: cada una queda marcada también en sus pantallas internas (editar, nueva…)
+const SECCIONES = [
+  { to: '/admin', label: 'Productos', activa: (p: string) => p === '/admin' || p.startsWith('/admin/producto') },
+  { to: '/admin/categorias', label: 'Categorías', activa: (p: string) => p.startsWith('/admin/categorias') },
+  { to: '/admin/precios', label: 'Precios', activa: (p: string) => p.startsWith('/admin/precios') },
+]
 
 type Estado = { tipo: 'cargando' } | { tipo: 'anonimo' } | { tipo: 'sinPermiso'; email: string } | { tipo: 'admin'; email: string }
 
@@ -49,8 +57,17 @@ function useEstadoAdmin(): Estado {
 
 export default function AdminApp() {
   const estado = useEstadoAdmin()
+  const { pathname } = useLocation()
 
-  if (estado.tipo === 'cargando') return <Pantalla>Cargando…</Pantalla>
+  if (estado.tipo === 'cargando')
+    return (
+      <Pantalla>
+        <span className="inline-flex items-center gap-3 font-semibold text-bordo/70">
+          <Spinner className="h-5 w-5 text-verde" />
+          Cargando…
+        </span>
+      </Pantalla>
+    )
   if (estado.tipo === 'anonimo') return <Login />
   if (estado.tipo === 'sinPermiso')
     return (
@@ -66,41 +83,40 @@ export default function AdminApp() {
 
   return (
     <div className="min-h-screen bg-crema-claro">
-      <header className="border-b border-linea bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-5">
-            <Link to="/admin" className="text-lg font-black tracking-tight">
-              Uko · Admin
-            </Link>
-            <nav className="flex gap-1 text-sm font-bold">
-              {[
-                ['/admin', 'Productos'],
-                ['/admin/categorias', 'Categorías'],
-                ['/admin/precios', 'Precios'],
-              ].map(([to, label]) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={to === '/admin'}
-                  className={({ isActive }) => `rounded-full px-3 py-1.5 ${isActive ? 'bg-verde-claro' : 'text-bordo/70 hover:text-bordo'}`}
-                >
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-4 text-sm font-semibold">
+      <header className="sticky top-0 z-30 border-b border-linea bg-white/95 shadow-[0_2px_12px_rgba(71,14,18,0.04)] backdrop-blur">
+        {/* Celular: marca y acciones arriba, menú abajo a todo el ancho. Desde sm: todo en una línea */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
+          <Link to="/admin" className="text-lg font-black tracking-tight whitespace-nowrap">
+            Uko · Admin
+          </Link>
+          <div className="ml-auto flex items-center gap-4 text-sm font-semibold sm:order-last">
             <Link to="/" className="text-verde hover:underline">
               Ver tienda
             </Link>
-            <span className="hidden text-bordo/60 sm:inline">{estado.email}</span>
-            <button type="button" onClick={() => supabase.auth.signOut()} className="text-bordo/70 hover:text-bordo">
+            <span className="hidden text-bordo/60 lg:inline">{estado.email}</span>
+            <button type="button" onClick={() => supabase.auth.signOut()} className="text-bordo/70 transition-colors hover:text-bordo">
               Salir
             </button>
           </div>
+          <nav className="grid w-full grid-cols-3 gap-1 rounded-full bg-crema-claro p-1 text-sm font-bold sm:flex sm:w-auto sm:bg-transparent sm:p-0">
+            {SECCIONES.map((s) => {
+              const activa = s.activa(pathname)
+              return (
+                <Link
+                  key={s.to}
+                  to={s.to}
+                  aria-current={activa ? 'page' : undefined}
+                  className={`rounded-full px-3 py-1.5 text-center whitespace-nowrap transition-colors ${activa ? 'bg-verde-claro text-bordo' : 'text-bordo/70 hover:text-bordo'}`}
+                >
+                  {s.label}
+                </Link>
+              )
+            })}
+          </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      {/* La clave hace que cada pantalla entre con una animación suave al navegar */}
+      <main key={pathname} className="fade-in mx-auto max-w-6xl px-4 py-6">
         <Routes>
           <Route index element={<ListaProductos />} />
           <Route path="producto/nuevo" element={<EditarProducto />} />
