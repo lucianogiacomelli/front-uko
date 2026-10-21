@@ -32,6 +32,11 @@
   .btn-pill {
     @apply inline-flex items-center gap-2 rounded-full bg-verde px-6 py-3 text-sm font-bold text-crema transition hover:bg-verde-oscuro;
   }
+
+  /* Inputs del panel de administración */
+  .campo {
+    @apply block w-full rounded-lg border border-linea bg-white px-3 py-2 text-sm font-medium text-bordo outline-none focus:border-verde focus:ring-2 focus:ring-verde/30;
+  }
 }
 
 /* Animaciones de aparición: el elemento sube y se funde al entrar en pantalla */

@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react'
 import type { Product } from '../types/product'
 import { fetchProducts } from './products'
 
-// Module-level cache so navigating between pages does not refetch the sheet.
+// Module-level cache so navigating between pages does not refetch the catalog.
 let cache: Promise<Product[]> | null = null
+
+// El admin la llama después de cada cambio para que la tienda vuelva a leer el catálogo
+export function invalidarProductos() {
+  cache = null
+}
 
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([])
