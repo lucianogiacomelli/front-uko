@@ -76,13 +76,12 @@
   animation: fade-up 0.6s ease both;
 }
 
-/* Bandas de color del inicio: arriba y abajo se funden con las secciones claras vecinas
-   (hero y footer en verde claro, destacados en crema). Necesitan padding vertical >= 140px. */
+/* Bandas de color del inicio: degradé diagonal dentro del mismo tono */
 .banda-categorias {
-  background: linear-gradient(to bottom, var(--color-verde-claro), var(--color-bordo) 140px, var(--color-bordo) calc(100% - 140px), var(--color-crema-claro));
+  background: linear-gradient(135deg, var(--color-bordo), #7a2128);
 }
 .banda-ofertas {
-  background: linear-gradient(to bottom, var(--color-crema-claro), var(--color-verde) 140px, var(--color-verde) calc(100% - 140px), var(--color-verde-claro));
+  background: linear-gradient(135deg, var(--color-verde-oscuro), #7a9636);
 }
 
 /* Bordes del carrusel de categorías: se difuminan para que las tarjetas no se corten de golpe */

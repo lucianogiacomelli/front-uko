@@ -69,7 +69,7 @@ export default function Home() {
 
       {/* Categorías: carrusel horizontal con flechas en desktop, banda bordo */}
       {categorias.length > 0 && (
-        <section className="banda-categorias py-36 text-crema">
+        <section className="banda-categorias py-12 text-crema">
           <div className="mx-auto max-w-6xl px-4">
             <p className="kicker mx-auto mb-8 w-fit border-b-2 border-crema/50 pb-1.5 text-center">
               Explorá por categoría
@@ -135,7 +135,7 @@ export default function Home() {
 
       {/* Oferta del mes: carrusel en banda verde, al final del inicio */}
       {!loading && !error && ofertas.length > 0 && (
-        <section className="banda-ofertas py-36 text-crema">
+        <section className="banda-ofertas py-14 text-crema">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
