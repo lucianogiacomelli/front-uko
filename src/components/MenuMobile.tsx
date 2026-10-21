@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
+import { usePanelAnimado } from '../hooks/usePanelAnimado'
 import { BagIcon, CartIcon, HomeIcon, TagIcon } from './Icons'
 
 // Páginas del sitio para navegar desde el menú mobile
@@ -15,6 +16,8 @@ type Props = { open: boolean; onClose: () => void }
 // Menú de navegación mobile: panel lateral desde la izquierda
 export default function MenuMobile({ open, onClose }: Props) {
   const { pathname } = useLocation()
+  // Sigue montado mientras dura la animación de cierre
+  const { montado, cerrando, alTerminarAnimacion } = usePanelAnimado(open)
 
   // Cerrar con Escape y bloquear el scroll de la página mientras está abierto
   useEffect(() => {
@@ -28,20 +31,21 @@ export default function MenuMobile({ open, onClose }: Props) {
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!montado) return null
 
   return (
-    <div className="fixed inset-0 z-50 sm:hidden">
+    <div className={`fixed inset-0 z-50 sm:hidden ${cerrando ? 'pointer-events-none' : ''}`}>
       <button
         type="button"
         aria-label="Cerrar menú"
         onClick={onClose}
-        className="fade-in absolute inset-0 bg-bordo/40 backdrop-blur-sm"
+        className={`${cerrando ? 'fade-out' : 'fade-in'} absolute inset-0 bg-bordo/40 backdrop-blur-sm`}
       />
 
       <nav
         aria-label="Menú principal"
-        className="drawer-in absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-crema shadow-2xl"
+        onAnimationEnd={alTerminarAnimacion}
+        className={`${cerrando ? 'drawer-out' : 'drawer-in'} absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-crema shadow-2xl`}
       >
         <header className="flex items-center justify-between border-b border-linea px-5 py-4">
           <h2 className="text-lg font-extrabold">Menú</h2>

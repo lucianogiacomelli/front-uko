@@ -105,6 +105,29 @@
 .fade-in {
   animation: fade-in 0.25s ease both;
 }
+/* Cierre: lo mismo al revés. Keyframes propios para que la animación arranque al cambiar de clase. */
+@keyframes drawer-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.drawer-out {
+  animation: drawer-out 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+}
+.fade-out {
+  animation: fade-out 0.3s ease both;
+}
 
 /* Flecha del aviso de scroll: rebota hacia abajo */
 @keyframes scroll-bounce {
@@ -123,7 +146,9 @@
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint-arrow,
   .drawer-in,
-  .fade-in {
+  .drawer-out,
+  .fade-in,
+  .fade-out {
     animation: none;
   }
   .reveal,
