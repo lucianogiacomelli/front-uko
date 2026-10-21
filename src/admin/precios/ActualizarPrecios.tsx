@@ -29,6 +29,7 @@ export default function ActualizarPrecios() {
   const [margenProd, setMargenProd] = useState<Record<string, string>>({})
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
   const [margenSeleccion, setMargenSeleccion] = useState('')
+  const [margenLista, setMargenLista] = useState('')
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set())
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [buscando, setBuscando] = useState<string | null>(null)
@@ -133,6 +134,15 @@ export default function ActualizarPrecios() {
     setMargenSeleccion('')
   }
 
+  // Mismo % para todas las categorías que tienen productos encontrados en este PDF.
+  // Los productos con % propio lo conservan.
+  function margenParaLista() {
+    if (!margenValido(margenLista)) return setError('El porcentaje de ganancia tiene que ser un número mayor o igual a 0.')
+    setError(null)
+    setMargenCat((m) => ({ ...m, ...Object.fromEntries(categoriasDeLista.map((id) => [id, margenLista])) }))
+    setMargenLista('')
+  }
+
   async function guardar() {
     if (!datos || !filas) return
     const malos = [
@@ -172,6 +182,7 @@ export default function ActualizarPrecios() {
     const fila = filas?.[asignacion[it.variante.id].i]
     return fila && precioNuevo(fila.costo, margenDe(it.producto)) !== it.variante.precio
   }).length
+  const categoriasDeLista = [...new Set(asignadas.map((it) => it.producto.categoriaId))]
   const sugeridas = items.filter((it) => !asignacion[it.variante.id] && mejorSugerencia(it.variante.id)).length
 
   return (
@@ -207,6 +218,19 @@ export default function ActualizarPrecios() {
 
       {filas && (
         <>
+          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4 text-sm">
+            <label className="flex items-center gap-2 font-semibold">
+              Ganancia para toda la lista
+              <input inputMode="decimal" value={margenLista} onChange={(e) => setMargenLista(e.target.value)} className="campo w-20" />%
+            </label>
+            <button type="button" onClick={margenParaLista} disabled={categoriasDeLista.length === 0} className="btn-pill !py-2 disabled:opacity-60">
+              Aplicar
+            </button>
+            <span className="text-bordo/60">
+              Se aplica a las {categoriasDeLista.length} categorías con productos encontrados. Los productos con % propio lo mantienen.
+            </span>
+          </div>
+
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <span>
               <strong>{asignadas.length}</strong> de {items.length} encontrados
