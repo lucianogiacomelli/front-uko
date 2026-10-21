@@ -150,7 +150,7 @@ export default function Buscador() {
                         src={p.imagen || '/brand/isotipo-k.png'}
                         alt=""
                         loading="lazy"
-                        className={p.imagen ? 'h-full w-full rounded-lg object-contain' : 'h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply'}
+                        className={p.imagen ? 'max-h-full max-w-full rounded-md object-contain' : 'h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply'}
                       />
                     </span>
                     <span className="min-w-0 flex-1">

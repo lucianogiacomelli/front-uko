@@ -34,7 +34,7 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
           className={`flex h-28 w-28 items-center justify-center overflow-hidden border border-linea bg-crema-claro ${redonda ? 'rounded-full' : 'rounded-xl'}`}
         >
           {vista ? (
-            <img src={vista} alt="" className={`h-full w-full ${redonda ? 'object-cover' : 'object-contain'}`} />
+            <img src={vista} alt="" className={redonda ? 'h-full w-full object-cover' : 'max-h-full max-w-full rounded-lg object-contain'} />
           ) : (
             <span className="text-xs text-bordo/50">Sin imagen</span>
           )}
