@@ -20,14 +20,8 @@ export default function Productos() {
   const [soloDisponibles, setSoloDisponibles] = useState(false)
   const [rango, setRango] = useState<Rango>('todos')
   const resultadosRef = useRef<HTMLDivElement>(null)
-  // Aviso "desliza para ver los productos": se oculta al empezar a bajar
-  const [hint, setHint] = useState(() => window.scrollY < 120)
-
-  useEffect(() => {
-    const onScroll = () => setHint(window.scrollY < 120)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  // Aviso "desliza para ver los productos"
+  const [hint, setHint] = useState(false)
 
   // Etiquetas disponibles en el catálogo, para los filtros
   const etiquetas = [...new Set(products.flatMap((p) => p.etiquetas))].sort()
@@ -49,6 +43,24 @@ export default function Productos() {
     products: items.filter((p) => p.categoria === c),
   }))
   const groupsKey = groups.map((g) => g.id).join('|')
+
+  // El aviso solo aparece si quedan productos por debajo de la pantalla, y se oculta al empezar a bajar.
+  // Se recalcula cuando cambian los resultados (búsqueda o filtros) o el tamaño de la ventana.
+  useEffect(() => {
+    const actualizar = () => {
+      const fin = resultadosRef.current?.getBoundingClientRect().bottom ?? 0
+      setHint(window.scrollY < 120 && fin > window.innerHeight + 40)
+    }
+    // Espera a que se pinten los resultados para medirlos
+    const frame = requestAnimationFrame(actualizar)
+    window.addEventListener('scroll', actualizar, { passive: true })
+    window.addEventListener('resize', actualizar)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', actualizar)
+      window.removeEventListener('resize', actualizar)
+    }
+  }, [groupsKey, items.length, loading])
 
   // Marca la categoría que está en el centro de la pantalla
   useEffect(() => {
