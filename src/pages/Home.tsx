@@ -119,7 +119,21 @@ export default function Home() {
         </section>
       )}
 
-      {/* Oferta del mes: carrusel en bordo, mismo movimiento que categorías */}
+      {/* Destacados */}
+      <section className="bg-crema-claro">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+          <SectionHead
+            kicker="Selección UKO"
+            title="Productos destacados"
+            link={{ to: '/productos', label: 'Ver todos' }}
+          />
+          {loading && <p>Cargando…</p>}
+          {error && <p>{error}</p>}
+          {!loading && !error && <ProductGrid products={destacados} />}
+        </div>
+      </section>
+
+      {/* Oferta del mes: carrusel en bordo, al final para no chocar con el verde de categorías */}
       {!loading && !error && ofertas.length > 0 && (
         <section className="bg-bordo py-14 text-crema">
           <div className="mx-auto max-w-6xl px-4">
@@ -166,20 +180,6 @@ export default function Home() {
           </div>
         </section>
       )}
-
-      {/* Destacados */}
-      <section className="bg-crema-claro">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-          <SectionHead
-            kicker="Selección UKO"
-            title="Productos destacados"
-            link={{ to: '/productos', label: 'Ver todos' }}
-          />
-          {loading && <p>Cargando…</p>}
-          {error && <p>{error}</p>}
-          {!loading && !error && <ProductGrid products={destacados} />}
-        </div>
-      </section>
     </>
   )
 }
