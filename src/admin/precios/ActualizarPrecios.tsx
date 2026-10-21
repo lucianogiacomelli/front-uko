@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { price } from '../../data/format'
 import { aplicarPrecios, cargarPrecios, type CategoriaPrecio, type ProductoPrecio, type VariantePrecio } from '../api'
 import { Aviso } from '../ui'
-import { firma, masParecidas, type Firma } from './coincidencias'
+import { firma, masParecidas, normalizar, type Firma } from './coincidencias'
 import { exportarListaPdf } from './exportarLista'
 import { leerPdf, type FilaProveedor } from './pdf'
 
@@ -10,8 +10,9 @@ import { leerPdf, type FilaProveedor } from './pdf'
 const UMBRAL_SUGERENCIA = 0.7
 
 // i = posición en la lista de filas de todos los PDFs cargados
-type Fila = FilaProveedor & { i: number; firma: Firma; archivo: string }
-type Item = { producto: ProductoPrecio; variante: VariantePrecio; nombre: string; firma: Firma }
+type Fila = FilaProveedor & { i: number; firma: Firma; archivo: string; seccionClave: string }
+// categoria: nombre normalizado de la categoría, para desempatar productos con el mismo nombre
+type Item = { producto: ProductoPrecio; variante: VariantePrecio; nombre: string; firma: Firma; categoria: string }
 type Origen = 'guardado' | 'exacto' | 'manual'
 type Asignacion = Record<string, { i: number; origen: Origen }>
 type Candidato = { i: number; puntaje: number }
@@ -28,19 +29,25 @@ function emparejar(items: Item[], filas: Fila[], previa: Asignacion) {
       asignacion[id] = previa[id]
       continue
     }
-    const guardada = it.variante.nombreProveedor ? filas.find((f) => f.firma.clave === it.variante.nombreProveedor) : undefined
-    const exacta = guardada ?? filas.find((f) => f.firma.clave === it.firma.clave)
-    if (exacta) asignacion[id] = { i: exacta.i, origen: guardada ? 'guardado' : 'exacto' }
+    const guardadas = it.variante.nombreProveedor ? filas.filter((f) => f.firma.clave === it.variante.nombreProveedor) : []
+    const iguales = guardadas.length ? guardadas : filas.filter((f) => f.firma.clave === it.firma.clave)
+    // Si el mismo nombre aparece varias veces (en distintas categorías), gana la fila bajo el título de su categoría
+    const exacta = iguales.find((f) => f.seccionClave === it.categoria) ?? iguales[0]
+    if (exacta) asignacion[id] = { i: exacta.i, origen: guardadas.length ? 'guardado' : 'exacto' }
     else sugerencias[id] = masParecidas(it.firma, filas).map(({ item, puntaje }) => ({ i: item.i, puntaje }))
   }
   return { asignacion, sugerencias }
 }
+
+// proveedor: el PDF trae costos y se les suma la ganancia. final: el PDF ya trae el precio de venta
+type Modo = 'proveedor' | 'final'
 
 const aNumero = (s: string) => Number(s.trim().replace(',', '.'))
 const margenValido = (s: string) => s.trim() !== '' && Number.isFinite(aNumero(s)) && aNumero(s) >= 0
 
 export default function ActualizarPrecios() {
   const [datos, setDatos] = useState<{ productos: ProductoPrecio[]; categorias: CategoriaPrecio[] } | null>(null)
+  const [modo, setModo] = useState<Modo>('proveedor')
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [leyendo, setLeyendo] = useState(false)
   // Variante -> fila del PDF elegida, y cómo se eligió
@@ -75,16 +82,15 @@ export default function ActualizarPrecios() {
   useEffect(cargar, [])
 
   // Una entrada por variante. Con una sola presentación se compara el nombre del producto solo
-  const items = useMemo<Item[]>(
-    () =>
-      (datos?.productos ?? []).flatMap((producto) =>
-        producto.variantes.map((variante) => {
-          const nombre = producto.variantes.length > 1 ? `${producto.nombre} ${variante.etiqueta}` : producto.nombre
-          return { producto, variante, nombre, firma: firma(nombre) }
-        }),
-      ),
-    [datos],
-  )
+  const items = useMemo<Item[]>(() => {
+    const categorias = new Map((datos?.categorias ?? []).map((c) => [c.id, normalizar(c.nombre)]))
+    return (datos?.productos ?? []).flatMap((producto) =>
+      producto.variantes.map((variante) => {
+        const nombre = producto.variantes.length > 1 ? `${producto.nombre} ${variante.etiqueta}` : producto.nombre
+        return { producto, variante, nombre, firma: firma(nombre), categoria: categorias.get(producto.categoriaId) ?? '' }
+      }),
+    )
+  }, [datos])
 
   // Agrega PDFs a los ya cargados: un producto puede estar en la lista de cualquier proveedor
   async function agregarPdfs(archivos: File[]) {
@@ -100,7 +106,9 @@ export default function ActualizarPrecios() {
       for (const file of nuevos) {
         const leidas = await leerPdf(file)
         if (leidas.length === 0) vacios.push(file.name)
-        for (const f of leidas) todas.push({ ...f, i: todas.length, firma: firma(f.nombre), archivo: file.name })
+        for (const f of leidas) {
+          todas.push({ ...f, i: todas.length, firma: firma(f.nombre), archivo: file.name, seccionClave: normalizar(f.seccion) })
+        }
       }
       if (vacios.length) setError(`No se encontraron productos con precio en: ${vacios.join(', ')}.`)
       if (todas.length === 0) return
@@ -142,7 +150,27 @@ export default function ActualizarPrecios() {
   if (!datos) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
 
   const margenDe = (p: ProductoPrecio) => (margenProd[p.id] !== '' ? margenProd[p.id] : margenCat[p.categoriaId])
+  const final = modo === 'final'
   const precioNuevo = (costo: number, margen: string) => Math.round(costo * (1 + aNumero(margen) / 100))
+  // Precio que quedaría con la fila asignada (null si el % de ganancia no es válido)
+  const calcular = (it: Item, fila: Fila) => {
+    if (final) return fila.precio
+    const margen = margenDe(it.producto)
+    return margenValido(margen) ? precioNuevo(fila.precio, margen) : null
+  }
+
+  // Cambiar de modo descarta los PDFs cargados: una lista de costos no sirve como lista final ni al revés
+  function cambiarModo(m: Modo) {
+    if (m === modo) return
+    setModo(m)
+    setFilas(null)
+    setAsignacion({})
+    setSugerencias({})
+    setSeleccion(new Set())
+    setArchivoMargen('')
+    setError(null)
+    setAviso(null)
+  }
   const mejorSugerencia = (id: string) => {
     const s = sugerencias[id]?.[0]
     return s && s.puntaje >= UMBRAL_SUGERENCIA ? s : null
@@ -205,28 +233,39 @@ export default function ActualizarPrecios() {
 
   async function guardar() {
     if (!datos || !filas) return
-    const malos = [
-      ...datos.categorias.filter((c) => !margenValido(margenCat[c.id])).map((c) => c.nombre),
-      ...datos.productos.filter((p) => margenProd[p.id] !== '' && !margenValido(margenProd[p.id])).map((p) => p.nombre),
-    ]
+    const malos = final
+      ? []
+      : [
+          ...datos.categorias.filter((c) => !margenValido(margenCat[c.id])).map((c) => c.nombre),
+          ...datos.productos.filter((p) => margenProd[p.id] !== '' && !margenValido(margenProd[p.id])).map((p) => p.nombre),
+        ]
     if (malos.length) return setError(`Revisá el porcentaje de ganancia de: ${malos.slice(0, 5).join(', ')}.`)
     const variantes = items.flatMap((it) => {
       const a = asignacion[it.variante.id]
       if (!a) return []
       const fila = filas[a.i]
-      return [{ id: it.variante.id, costo: fila.costo, precio: precioNuevo(fila.costo, margenDe(it.producto)), nombre_proveedor: fila.firma.clave }]
+      // Con precios finales solo cambia el precio: el costo y el nombre del proveedor quedan como estaban
+      return [
+        final
+          ? { id: it.variante.id, costo: it.variante.costo, precio: fila.precio, nombre_proveedor: it.variante.nombreProveedor }
+          : { id: it.variante.id, costo: fila.precio, precio: precioNuevo(fila.precio, margenDe(it.producto)), nombre_proveedor: fila.firma.clave },
+      ]
     })
-    const categorias = datos.categorias
+    const categorias = final ? [] : datos.categorias
       .filter((c) => aNumero(margenCat[c.id]) !== c.margen)
       .map((c) => ({ id: c.id, margen: aNumero(margenCat[c.id]) }))
-    const productos = datos.productos
+    const productos = final ? [] : datos.productos
       .filter((p) => (margenProd[p.id] === '' ? null : aNumero(margenProd[p.id])) !== p.margen)
       .map((p) => ({ id: p.id, margen: margenProd[p.id] === '' ? null : aNumero(margenProd[p.id]) }))
     setGuardando(true)
     setError(null)
     try {
       const n = await aplicarPrecios(variantes, categorias, productos)
-      setAviso(`Listo: se actualizaron ${n} precios. Los nombres del proveedor quedaron guardados para la próxima lista.`)
+      setAviso(
+        final
+          ? `Listo: se actualizaron ${n} precios.`
+          : `Listo: se actualizaron ${n} precios. Los nombres del proveedor quedaron guardados para la próxima lista.`,
+      )
       setFilas(null)
       setAsignacion({})
       setSugerencias({})
@@ -241,7 +280,8 @@ export default function ActualizarPrecios() {
   const asignadas = items.filter((it) => asignacion[it.variante.id])
   const conCambio = asignadas.filter((it) => {
     const fila = filas?.[asignacion[it.variante.id].i]
-    return fila && precioNuevo(fila.costo, margenDe(it.producto)) !== it.variante.precio
+    const nuevo = fila ? calcular(it, fila) : null
+    return nuevo !== null && nuevo !== it.variante.precio
   }).length
   const archivoDe = (it: Item) => filas![asignacion[it.variante.id].i].archivo
   const archivos = [...new Set((filas ?? []).map((f) => f.archivo))].map((nombre) => ({
@@ -267,9 +307,30 @@ export default function ActualizarPrecios() {
           {exportando ? 'Generando PDF…' : 'Descargar lista de precios (PDF)'}
         </button>
       </div>
-      <p className="mt-1 mb-5 max-w-2xl text-sm text-bordo/70">
-        Subí la lista del proveedor en PDF. Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más
-        el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.
+
+      <div className="mt-4 flex flex-wrap rounded-full border border-linea bg-white p-1 text-sm font-bold sm:w-fit" role="tablist">
+        {(
+          [
+            ['proveedor', 'Lista del proveedor (costo + ganancia)'],
+            ['final', 'Lista con precios finales'],
+          ] as const
+        ).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={modo === m}
+            onClick={() => cambiarModo(m)}
+            className={`rounded-full px-4 py-2 ${modo === m ? 'bg-verde text-crema' : 'text-bordo/70 hover:text-bordo'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 mb-5 max-w-2xl text-sm text-bordo/70">
+        {final
+          ? 'Subí una lista con los precios de venta ya calculados, como la lista impresa del local. Se buscan tus productos y se guarda el precio tal como viene en el PDF, sin sumar ganancia.'
+          : 'Subí la lista del proveedor en PDF. Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.'}
       </p>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4">
@@ -283,7 +344,7 @@ export default function ActualizarPrecios() {
             e.target.value = ''
           }}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema"
-          aria-label="PDFs de los proveedores"
+          aria-label={final ? 'PDFs con precios finales' : 'PDFs de los proveedores'}
         />
         <span className="text-sm text-bordo/60">Podés elegir varios PDFs juntos o ir agregándolos.</span>
         {leyendo && <span className="text-sm font-semibold">Leyendo…</span>}
@@ -314,30 +375,32 @@ export default function ActualizarPrecios() {
 
       {filas && (
         <>
-          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4 text-sm">
-            <label className="flex flex-wrap items-center gap-2 font-semibold">
-              Ganancia para
-              {archivos.length > 1 ? (
-                <select value={archivoMargen} onChange={(e) => setArchivoMargen(e.target.value)} className="campo w-auto" aria-label="PDF">
-                  <option value="">todos los PDFs</option>
-                  {archivos.map((a) => (
-                    <option key={a.nombre} value={a.nombre}>
-                      {a.nombre}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                'toda la lista'
-              )}
-              <input inputMode="decimal" value={margenLista} onChange={(e) => setMargenLista(e.target.value)} className="campo w-20" />%
-            </label>
-            <button type="button" onClick={margenParaLista} disabled={categoriasDeLista.length === 0} className="btn-pill !py-2 disabled:opacity-60">
-              Aplicar
-            </button>
-            <span className="text-bordo/60">
-              Se aplica a las {categoriasDeLista.length} categorías con productos encontrados. Los productos con % propio lo mantienen.
-            </span>
-          </div>
+          {!final && (
+            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4 text-sm">
+              <label className="flex flex-wrap items-center gap-2 font-semibold">
+                Ganancia para
+                {archivos.length > 1 ? (
+                  <select value={archivoMargen} onChange={(e) => setArchivoMargen(e.target.value)} className="campo w-auto" aria-label="PDF">
+                    <option value="">todos los PDFs</option>
+                    {archivos.map((a) => (
+                      <option key={a.nombre} value={a.nombre}>
+                        {a.nombre}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  'toda la lista'
+                )}
+                <input inputMode="decimal" value={margenLista} onChange={(e) => setMargenLista(e.target.value)} className="campo w-20" />%
+              </label>
+              <button type="button" onClick={margenParaLista} disabled={categoriasDeLista.length === 0} className="btn-pill !py-2 disabled:opacity-60">
+                Aplicar
+              </button>
+              <span className="text-bordo/60">
+                Se aplica a las {categoriasDeLista.length} categorías con productos encontrados. Los productos con % propio lo mantienen.
+              </span>
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <span>
@@ -381,17 +444,19 @@ export default function ActualizarPrecios() {
                         {encontrados}/{deCat.length} encontrados
                       </span>
                     </button>
-                    <label className="flex items-center gap-2 text-sm font-semibold">
-                      Ganancia
-                      <input
-                        inputMode="decimal"
-                        value={margenCat[cat.id]}
-                        onChange={(e) => setMargenCat((m) => ({ ...m, [cat.id]: e.target.value }))}
-                        className={`campo w-20 ${margenValido(margenCat[cat.id]) ? '' : 'border-red-500'}`}
-                        aria-label={`Ganancia de ${cat.nombre}`}
-                      />
-                      %
-                    </label>
+                    {!final && (
+                      <label className="flex items-center gap-2 text-sm font-semibold">
+                        Ganancia
+                        <input
+                          inputMode="decimal"
+                          value={margenCat[cat.id]}
+                          onChange={(e) => setMargenCat((m) => ({ ...m, [cat.id]: e.target.value }))}
+                          className={`campo w-20 ${margenValido(margenCat[cat.id]) ? '' : 'border-red-500'}`}
+                          aria-label={`Ganancia de ${cat.nombre}`}
+                        />
+                        %
+                      </label>
+                    )}
                   </div>
 
                   {abierta && (
@@ -399,23 +464,24 @@ export default function ActualizarPrecios() {
                       {visibles.map((it) => {
                         const a = asignacion[it.variante.id]
                         const fila = a ? filas[a.i] : null
-                        const margen = margenDe(it.producto)
-                        const nuevo = fila && margenValido(margen) ? precioNuevo(fila.costo, margen) : null
+                        const nuevo = fila ? calcular(it, fila) : null
                         const cambio = nuevo !== null && it.variante.precio > 0 ? ((nuevo - it.variante.precio) / it.variante.precio) * 100 : 0
                         const sug = mejorSugerencia(it.variante.id)
                         return (
                           <li key={it.variante.id} className="px-4 py-3 text-sm">
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                               <label className="flex min-w-0 flex-1 basis-60 items-center gap-2 font-bold">
-                                <input
-                                  type="checkbox"
-                                  checked={seleccion.has(it.producto.id)}
-                                  onChange={() => setSeleccion((s) => toggle(s, it.producto.id))}
-                                  aria-label={`Seleccionar ${it.producto.nombre}`}
-                                />
+                                {!final && (
+                                  <input
+                                    type="checkbox"
+                                    checked={seleccion.has(it.producto.id)}
+                                    onChange={() => setSeleccion((s) => toggle(s, it.producto.id))}
+                                    aria-label={`Seleccionar ${it.producto.nombre}`}
+                                  />
+                                )}
                                 <span className="min-w-0">
                                   {it.nombre}
-                                  {margenProd[it.producto.id] !== '' && (
+                                  {!final && margenProd[it.producto.id] !== '' && (
                                     <span className="ml-2 rounded-full bg-verde-claro px-2 py-0.5 text-xs">
                                       {margenProd[it.producto.id]}% propio
                                     </span>
@@ -426,7 +492,7 @@ export default function ActualizarPrecios() {
                               <div className="min-w-0 flex-1 basis-60 text-bordo/80">
                                 {fila ? (
                                   <span>
-                                    {fila.nombre} · <strong>{price.format(fila.costo)}</strong>
+                                    {fila.nombre} · <strong>{price.format(fila.precio)}</strong>
                                     {archivos.length > 1 && <span className="text-xs text-bordo/50"> · {fila.archivo}</span>}
                                     {a.origen !== 'manual' && <span className="text-xs text-bordo/50"> ({a.origen === 'guardado' ? 'recordado' : 'igual'})</span>}
                                     <button type="button" onClick={() => desasignar(it.variante.id)} className="ml-2 text-xs font-semibold text-bordo/60 hover:text-bordo">
@@ -546,7 +612,7 @@ function Buscador({ filas, sugeridas, onElegir }: { filas: Fila[]; sugeridas: Ca
                 {filas[i].nombre}
                 <span className="ml-2 text-xs text-bordo/50">{filas[i].archivo}</span>
               </span>
-              <strong className="tabular-nums">{price.format(filas[i].costo)}</strong>
+              <strong className="tabular-nums">{price.format(filas[i].precio)}</strong>
             </button>
           </li>
         ))}

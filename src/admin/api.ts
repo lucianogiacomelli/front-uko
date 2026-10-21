@@ -185,7 +185,7 @@ export async function cargarPrecios(): Promise<{ productos: ProductoPrecio[]; ca
 }
 
 export async function aplicarPrecios(
-  variantes: { id: string; costo: number; precio: number; nombre_proveedor: string }[],
+  variantes: { id: string; costo: number | null; precio: number; nombre_proveedor: string | null }[],
   categorias: { id: string; margen: number }[],
   productos: { id: string; margen: number | null }[],
 ): Promise<number> {
