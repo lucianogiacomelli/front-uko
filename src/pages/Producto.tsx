@@ -5,7 +5,6 @@ import { useCarrito } from '../carrito/CarritoContext'
 import { price } from '../data/format'
 import { enOferta, precioConOferta } from '../data/ofertas'
 import { etiquetaPara } from '../data/pedido'
-import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
 
 export default function Producto() {
@@ -29,15 +28,15 @@ export default function Producto() {
       {product && (
         <article className="flex flex-col gap-6">
           <Link
-            to={`/categoria/${slugify(product.categoria)}`}
+            to={`/categoria/${product.categoriaId}`}
             className="text-sm font-bold text-verde hover:underline"
           >
             ← {product.categoria}
           </Link>
           <div className="grid gap-8 md:grid-cols-2">
-            <div className="aspect-square overflow-hidden rounded-[19px] border border-linea bg-white p-6 shadow-card">
+            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[19px] border border-linea bg-white p-6 shadow-card">
               {product.imagen ? (
-                <img src={product.imagen} alt={product.nombre} className="h-full w-full object-contain" />
+                <img src={product.imagen} alt={product.nombre} className="max-h-full max-w-full rounded-2xl object-contain" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-2xl bg-crema-claro">
                   <img src="/brand/isotipo-k.png" alt="" className="h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply" />

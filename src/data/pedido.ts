@@ -1,6 +1,5 @@
 import type { ItemCarrito } from '../carrito/CarritoContext'
 import type { Product, Variante } from '../types/product'
-import { contacto } from './contacto'
 import { price } from './format'
 import { precioConOferta } from './ofertas'
 
@@ -71,7 +70,7 @@ export function armarMensaje(lineas: LineaPedido[]): string {
 }
 
 // Link de WhatsApp con el mensaje ya cargado. Sin número configurado, WhatsApp pide el destinatario
-export function linkWhatsapp(texto: string): string {
-  const base = contacto.whatsapp ? `https://wa.me/${contacto.whatsapp}` : 'https://wa.me/'
+export function linkWhatsapp(texto: string, whatsapp: string): string {
+  const base = whatsapp ? `https://wa.me/${whatsapp}` : 'https://wa.me/'
   return `${base}?text=${encodeURIComponent(texto)}`
 }

@@ -6,7 +6,6 @@ import ProductGrid from '../components/ProductGrid'
 import SectionHead from '../components/SectionHead'
 import { useCarousel } from '../hooks/useCarousel'
 import { enOferta } from '../data/ofertas'
-import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
 
 const FEATURED_COUNT = 8
@@ -21,8 +20,9 @@ function ChevronIcon({ className }: { className?: string }) {
 }
 
 export default function Home() {
-  const { products, loading, error } = useProducts()
-  const categorias = [...new Set(products.map((p) => p.categoria))].sort()
+  const { products, categorias: todas, loading, error } = useProducts()
+  // Solo categorías con productos a la vista
+  const categorias = todas.filter((c) => products.some((p) => p.categoriaId === c.id))
   const ofertas = useMemo(
     () => products.filter(enOferta).sort((a, b) => b.descuento - a.descuento),
     [products],
@@ -67,9 +67,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categorías: carrusel horizontal con flechas en desktop */}
+      {/* Categorías: carrusel horizontal con flechas en desktop, fondo bordo */}
       {categorias.length > 0 && (
-        <section className="bg-verde py-12 text-crema">
+        <section className="bg-bordo py-12 text-crema">
           <div className="mx-auto max-w-6xl px-4">
             <p className="kicker mx-auto mb-8 w-fit border-b-2 border-crema/50 pb-1.5 text-center">
               Explorá por categoría
@@ -79,7 +79,7 @@ export default function Home() {
                 type="button"
                 onClick={() => cats.mover(-1)}
                 aria-label="Categorías anteriores"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5 rotate-180" />
               </button>
@@ -90,15 +90,19 @@ export default function Home() {
               >
                 {categorias.map((c) => (
                   <Link
-                    key={c}
-                    to={`/categoria/${slugify(c)}`}
+                    key={c.id}
+                    to={`/categoria/${c.id}`}
                     draggable={false}
                     className="group flex w-24 shrink-0 flex-col items-center gap-3 text-center sm:w-28"
                   >
-                    <span className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-crema/25 bg-crema text-verde shadow-lg transition group-hover:scale-105 sm:h-28 sm:w-28">
-                      <LeafIcon className="h-9 w-9" />
+                    <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-crema/25 bg-crema text-verde shadow-lg transition group-hover:scale-105 sm:h-28 sm:w-28">
+                      {c.imagen ? (
+                        <img src={c.imagen} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+                      ) : (
+                        <LeafIcon className="h-9 w-9" />
+                      )}
                     </span>
-                    <span className="kicker leading-tight">{c}</span>
+                    <span className="kicker leading-tight">{c.nombre}</span>
                   </Link>
                 ))}
               </div>
@@ -106,54 +110,6 @@ export default function Home() {
                 type="button"
                 onClick={() => cats.mover(1)}
                 aria-label="Categorías siguientes"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
-              >
-                <ChevronIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Oferta del mes: carrusel en bordo, mismo movimiento que categorías */}
-      {!loading && !error && ofertas.length > 0 && (
-        <section className="bg-bordo py-14 text-crema">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <span className="kicker text-crema/70">Oferta del mes</span>
-                <h2 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Lo mejor para llevar</h2>
-              </div>
-              <Link to="/ofertas" className="text-sm font-bold hover:underline underline-offset-4">
-                Ver todas las ofertas →
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => ofs.mover(-1)}
-                aria-label="Ofertas anteriores"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
-              >
-                <ChevronIcon className="h-5 w-5 rotate-180" />
-              </button>
-              <div
-                ref={ofsRef}
-                {...ofs.props}
-                className="fade-edges flex min-w-0 flex-1 gap-5 overflow-x-auto px-6 py-3 [scrollbar-width:none] sm:cursor-grab sm:gap-6 sm:select-none [&::-webkit-scrollbar]:hidden"
-              >
-                {ofertas.map((p) => (
-                  // text-bordo: las tarjetas son blancas, el texto crema de la sección no debe heredarse
-                  <div key={p.id} className="w-60 shrink-0 text-bordo sm:w-64">
-                    <ProductCard product={p} />
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => ofs.mover(1)}
-                aria-label="Ofertas siguientes"
                 className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5" />
@@ -176,6 +132,54 @@ export default function Home() {
           {!loading && !error && <ProductGrid products={destacados} />}
         </div>
       </section>
+
+      {/* Oferta del mes: carrusel en verde, al final del inicio */}
+      {!loading && !error && ofertas.length > 0 && (
+        <section className="bg-verde py-14 text-crema">
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <span className="kicker text-crema/70">Oferta del mes</span>
+                <h2 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Lo mejor para llevar</h2>
+              </div>
+              <Link to="/ofertas" className="text-sm font-bold hover:underline underline-offset-4">
+                Ver todas las ofertas →
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => ofs.mover(-1)}
+                aria-label="Ofertas anteriores"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
+              >
+                <ChevronIcon className="h-5 w-5 rotate-180" />
+              </button>
+              <div
+                ref={ofsRef}
+                {...ofs.props}
+                className="fade-edges flex min-w-0 flex-1 gap-5 overflow-x-auto px-6 py-3 [scrollbar-width:none] sm:cursor-grab sm:gap-6 sm:select-none [&::-webkit-scrollbar]:hidden"
+              >
+                {ofertas.map((p) => (
+                  // text-bordo: las tarjetas son blancas, el texto crema de la sección no debe heredarse
+                  <div key={p.id} className="w-60 shrink-0 text-bordo sm:w-64">
+                    <ProductCard product={p} />
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => ofs.mover(1)}
+                aria-label="Ofertas siguientes"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
+              >
+                <ChevronIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
     </>
   )
 }

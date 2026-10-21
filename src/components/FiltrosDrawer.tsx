@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { RANGOS, type Rango } from '../data/filters'
+import { usePanelAnimado } from '../hooks/usePanelAnimado'
 
 type Group = { id: string; title: string; count: number }
 
@@ -25,6 +26,8 @@ type Props = {
 // Panel lateral de filtros y categorías. Sirve igual en desktop y mobile.
 export default function FiltrosDrawer(p: Props) {
   const { open, onClose } = p
+  // Sigue montado mientras dura la animación de cierre
+  const { montado, cerrando, alTerminarAnimacion } = usePanelAnimado(open)
 
   // Cerrar con Escape y bloquear el scroll de la página mientras está abierto
   useEffect(() => {
@@ -38,22 +41,23 @@ export default function FiltrosDrawer(p: Props) {
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!montado) return null
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className={`fixed inset-0 z-50 ${cerrando ? 'pointer-events-none' : ''}`}>
       <button
         type="button"
         aria-label="Cerrar filtros"
         onClick={onClose}
-        className="fade-in absolute inset-0 bg-bordo/40 backdrop-blur-sm"
+        className={`${cerrando ? 'fade-out' : 'fade-in'} absolute inset-0 bg-bordo/40 backdrop-blur-sm`}
       />
 
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Filtros y categorías"
-        className="drawer-in absolute inset-y-0 left-0 flex w-full max-w-sm flex-col bg-crema shadow-2xl"
+        onAnimationEnd={alTerminarAnimacion}
+        className={`${cerrando ? 'drawer-out' : 'drawer-in'} absolute inset-y-0 left-0 flex w-full max-w-sm flex-col bg-crema shadow-2xl`}
       >
         <header className="flex items-center justify-between border-b border-linea px-5 py-4">
           <h2 className="text-lg font-extrabold">Filtros y categorías</h2>

@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import Container from '../components/Container'
 import { useCarrito } from '../carrito/CarritoContext'
 import { price } from '../data/format'
+import { useContacto } from '../data/contacto'
 import { armarMensaje, linkWhatsapp, resolverLineas } from '../data/pedido'
 import { useProducts } from '../data/useProducts'
 
@@ -11,6 +12,7 @@ const botonCantidad =
 export default function Carrito() {
   const { items, cambiarCantidad, quitar, vaciar } = useCarrito()
   const { products, loading, error } = useProducts()
+  const contacto = useContacto()
 
   // Se recalcula en cada render: el mensaje y los totales siempre siguen al carrito
   const lineas = resolverLineas(items, products)
@@ -121,7 +123,7 @@ export default function Carrito() {
             </div>
 
             <a
-              href={linkWhatsapp(mensaje)}
+              href={linkWhatsapp(mensaje, contacto.whatsapp)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-pill w-full justify-center"

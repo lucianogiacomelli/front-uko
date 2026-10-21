@@ -35,13 +35,15 @@ export default function ProductCard({ product, showCategory = true }: Props) {
         to={`/producto/${product.id}`}
         className="flex flex-1 flex-col after:absolute after:inset-0 after:content-['']"
       >
-        <div className="aspect-[4/3] bg-white p-4">
+        {/* overflow-hidden: sin esto una foto vertical estira el recuadro más allá de 4:3.
+            La foto se centra con su tamaño propio para que las esquinas redondeadas caigan sobre ella */}
+        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-white p-4">
           {product.imagen ? (
             <img
               src={product.imagen}
               alt={product.nombre}
               loading="lazy"
-              className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
+              className="max-h-full max-w-full rounded-xl object-contain transition duration-500 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center rounded-2xl bg-crema-claro">

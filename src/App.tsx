@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
 import { CarritoProvider } from './carrito/CarritoProvider'
 import Layout from './components/Layout'
@@ -8,6 +9,9 @@ import NotFound from './pages/NotFound'
 import Ofertas from './pages/Ofertas'
 import Producto from './pages/Producto'
 import Productos from './pages/Productos'
+
+// El panel se carga aparte: los visitantes de la tienda no descargan su código
+const AdminApp = lazy(() => import('./admin/AdminApp'))
 
 export default function App() {
   return (
@@ -22,6 +26,14 @@ export default function App() {
           <Route path="producto/:id" element={<Producto />} />
           <Route path="*" element={<NotFound />} />
         </Route>
+        <Route
+          path="admin/*"
+          element={
+            <Suspense fallback={null}>
+              <AdminApp />
+            </Suspense>
+          }
+        />
       </Routes>
     </CarritoProvider>
   )

@@ -1,19 +1,31 @@
 import { useEffect, useState } from 'react'
-import type { Product } from '../types/product'
-import { fetchProducts } from './products'
+import type { Categoria, Product } from '../types/product'
+import { fetchCategorias, fetchProducts } from './products'
 
-// Module-level cache so navigating between pages does not refetch the sheet.
-let cache: Promise<Product[]> | null = null
+type Catalogo = { products: Product[]; categorias: Categoria[] }
+
+// Module-level cache so navigating between pages does not refetch the catalog.
+let cache: Promise<Catalogo> | null = null
+
+// El admin la llama después de cada cambio para que la tienda vuelva a leer el catálogo
+export function invalidarProductos() {
+  cache = null
+}
+
+async function fetchCatalogo(): Promise<Catalogo> {
+  const [products, categorias] = await Promise.all([fetchProducts(), fetchCategorias()])
+  return { products, categorias }
+}
 
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [catalogo, setCatalogo] = useState<Catalogo>({ products: [], categorias: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    cache ??= fetchProducts()
+    cache ??= fetchCatalogo()
     cache
-      .then(setProducts)
+      .then(setCatalogo)
       .catch((e: Error) => {
         cache = null
         setError(e.message)
@@ -21,5 +33,5 @@ export function useProducts() {
       .finally(() => setLoading(false))
   }, [])
 
-  return { products, loading, error }
+  return { ...catalogo, loading, error }
 }

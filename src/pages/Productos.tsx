@@ -4,10 +4,9 @@ import CategorySection from '../components/CategorySection'
 import Container from '../components/Container'
 import FiltrosDrawer from '../components/FiltrosDrawer'
 import { enRango, type Rango } from '../data/filters'
+import { coincide } from '../data/busqueda'
 import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
-
-const normalize = (s: string) => slugify(s).replace(/-/g, ' ')
 
 export default function Productos() {
   const [params, setParams] = useSearchParams()
@@ -20,22 +19,15 @@ export default function Productos() {
   const [soloDisponibles, setSoloDisponibles] = useState(false)
   const [rango, setRango] = useState<Rango>('todos')
   const resultadosRef = useRef<HTMLDivElement>(null)
-  // Aviso "desliza para ver los productos": se oculta al empezar a bajar
-  const [hint, setHint] = useState(() => window.scrollY < 120)
-
-  useEffect(() => {
-    const onScroll = () => setHint(window.scrollY < 120)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  // Aviso "desliza para ver los productos"
+  const [hint, setHint] = useState(false)
 
   // Etiquetas disponibles en el catálogo, para los filtros
   const etiquetas = [...new Set(products.flatMap((p) => p.etiquetas))].sort()
   const filtrosActivos = etiquetasSel.length + (soloDisponibles ? 1 : 0) + (rango !== 'todos' ? 1 : 0)
 
-  const needle = normalize(q)
   const items = products.filter((p) => {
-    if (needle && !normalize(`${p.nombre} ${p.categoria} ${p.etiquetas.join(' ')}`).includes(needle)) return false
+    if (!coincide(p, q)) return false
     if (etiquetasSel.some((t) => !p.etiquetas.includes(t))) return false
     if (soloDisponibles && !p.disponible) return false
     return enRango(p.precio, rango)
@@ -49,6 +41,24 @@ export default function Productos() {
     products: items.filter((p) => p.categoria === c),
   }))
   const groupsKey = groups.map((g) => g.id).join('|')
+
+  // El aviso solo aparece si quedan productos por debajo de la pantalla, y se oculta al empezar a bajar.
+  // Se recalcula cuando cambian los resultados (búsqueda o filtros) o el tamaño de la ventana.
+  useEffect(() => {
+    const actualizar = () => {
+      const fin = resultadosRef.current?.getBoundingClientRect().bottom ?? 0
+      setHint(window.scrollY < 120 && fin > window.innerHeight + 40)
+    }
+    // Espera a que se pinten los resultados para medirlos
+    const frame = requestAnimationFrame(actualizar)
+    window.addEventListener('scroll', actualizar, { passive: true })
+    window.addEventListener('resize', actualizar)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', actualizar)
+      window.removeEventListener('resize', actualizar)
+    }
+  }, [groupsKey, items.length, loading])
 
   // Marca la categoría que está en el centro de la pantalla
   useEffect(() => {
@@ -142,9 +152,15 @@ export default function Productos() {
         )}
       </div>
 
-      {hint && !loading && !error && groups.length > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center">
-          <span className="fade-up flex items-center gap-2 rounded-full bg-bordo px-5 py-2.5 text-sm font-bold text-crema shadow-lg">
+      {/* Siempre montado: aparece y se va con un fundido en vez de cortarse de golpe */}
+      {!loading && !error && groups.length > 0 && (
+        <div
+          aria-hidden={!hint}
+          className={`pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center transition duration-500 ease-out motion-reduce:transition-none ${
+            hint ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+          }`}
+        >
+          <span className="flex items-center gap-2 rounded-full bg-bordo px-5 py-2.5 text-sm font-bold text-crema shadow-lg">
             Desliza para ver los productos
             <span className="scroll-hint-arrow inline-block" aria-hidden>
               ↓

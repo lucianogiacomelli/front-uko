@@ -32,6 +32,11 @@
   .btn-pill {
     @apply inline-flex items-center gap-2 rounded-full bg-verde px-6 py-3 text-sm font-bold text-crema transition hover:bg-verde-oscuro;
   }
+
+  /* Inputs del panel de administración */
+  .campo {
+    @apply block w-full rounded-lg border border-linea bg-white px-3 py-2 text-sm font-medium text-bordo outline-none focus:border-verde focus:ring-2 focus:ring-verde/30;
+  }
 }
 
 /* Animaciones de aparición: el elemento sube y se funde al entrar en pantalla */
@@ -100,6 +105,29 @@
 .fade-in {
   animation: fade-in 0.25s ease both;
 }
+/* Cierre: lo mismo al revés. Keyframes propios para que la animación arranque al cambiar de clase. */
+@keyframes drawer-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.drawer-out {
+  animation: drawer-out 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+}
+.fade-out {
+  animation: fade-out 0.3s ease both;
+}
 
 /* Flecha del aviso de scroll: rebota hacia abajo */
 @keyframes scroll-bounce {
@@ -118,7 +146,9 @@
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint-arrow,
   .drawer-in,
-  .fade-in {
+  .drawer-out,
+  .fade-in,
+  .fade-out {
     animation: none;
   }
   .reveal,
