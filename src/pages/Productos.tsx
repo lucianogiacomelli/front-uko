@@ -4,10 +4,9 @@ import CategorySection from '../components/CategorySection'
 import Container from '../components/Container'
 import FiltrosDrawer from '../components/FiltrosDrawer'
 import { enRango, type Rango } from '../data/filters'
+import { coincide } from '../data/busqueda'
 import { slugify } from '../data/products'
 import { useProducts } from '../data/useProducts'
-
-const normalize = (s: string) => slugify(s).replace(/-/g, ' ')
 
 export default function Productos() {
   const [params, setParams] = useSearchParams()
@@ -27,9 +26,8 @@ export default function Productos() {
   const etiquetas = [...new Set(products.flatMap((p) => p.etiquetas))].sort()
   const filtrosActivos = etiquetasSel.length + (soloDisponibles ? 1 : 0) + (rango !== 'todos' ? 1 : 0)
 
-  const needle = normalize(q)
   const items = products.filter((p) => {
-    if (needle && !normalize(`${p.nombre} ${p.categoria} ${p.etiquetas.join(' ')}`).includes(needle)) return false
+    if (!coincide(p, q)) return false
     if (etiquetasSel.some((t) => !p.etiquetas.includes(t))) return false
     if (soloDisponibles && !p.disponible) return false
     return enRango(p.precio, rango)

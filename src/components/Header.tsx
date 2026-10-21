@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
-import { Link, NavLink, useNavigate, useSearchParams } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import { useCarrito } from '../carrito/CarritoContext'
-import { BagIcon, CartIcon, HomeIcon, SearchIcon, TagIcon } from './Icons'
+import Buscador from './Buscador'
+import { BagIcon, CartIcon, HomeIcon, TagIcon } from './Icons'
 import MenuMobile from './MenuMobile'
 
 // hideOnDesktop: el botón solo aparece en mobile (en desktop el logo ya lleva a Home)
@@ -12,18 +13,9 @@ const tabs = [
 ]
 
 export default function Header() {
-  const [params] = useSearchParams()
-  const [query, setQuery] = useState(params.get('q') ?? '')
-  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const cerrarMenu = useCallback(() => setMenuOpen(false), [])
   const { cantidadTotal } = useCarrito()
-
-  function search(e: React.FormEvent) {
-    e.preventDefault()
-    const q = query.trim()
-    navigate(q ? `/productos?q=${encodeURIComponent(q)}` : '/productos')
-  }
 
   return (
     <header className="sticky top-0 z-20 bg-crema/97 shadow-[0_8px_22px_rgba(71,14,18,0.08)]">
@@ -42,18 +34,9 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-col gap-3 py-3 pr-4 pl-24 sm:flex-row sm:items-center sm:gap-4 sm:py-3.5 sm:pr-6 sm:pl-[150px]">
-          <div className="flex w-full items-center gap-2 sm:flex-1">
-            <form onSubmit={search} role="search" className="relative min-w-0 flex-1">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-bordo/50" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar productos"
-                aria-label="Buscar productos"
-                className="h-11 w-full rounded-full border border-white/95 bg-white/90 pr-4 pl-11 text-sm text-bordo shadow-[0_7px_22px_rgba(71,14,18,0.09)] outline-none backdrop-blur placeholder:text-bordo/40 focus:border-verde sm:h-12 sm:text-[15px]"
-              />
-            </form>
+          {/* relative: las sugerencias de búsqueda ocupan el ancho de esta fila */}
+          <div className="relative flex w-full items-center gap-2 sm:flex-1">
+            <Buscador />
 
             {/* Carrito: visible en mobile y desktop, con la cantidad de productos */}
             <Link
