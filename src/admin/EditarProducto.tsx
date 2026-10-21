@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { slugify } from '../data/products'
 import type { Categoria, Product, Variante } from '../types/product'
-import { guardarConImagen, guardarProducto, listarCategorias, obtenerProducto } from './api'
+import { guardarConImagen, guardarProducto, listarCategorias, listarEtiquetas, obtenerProducto } from './api'
+import EtiquetasInput from './EtiquetasInput'
 import ImagenInput, { type ArchivoImagen } from './ImagenInput'
 import { Aviso, BarraAcciones, Campo, Cargando, Ocupado } from './ui'
 
@@ -14,7 +15,7 @@ type Form = {
   nombre: string
   categoriaId: string
   descripcion: string
-  etiquetas: string
+  etiquetas: string[]
   disponible: boolean
   enOferta: boolean
   descuento: string
@@ -27,7 +28,7 @@ const VACIO: Form = {
   nombre: '',
   categoriaId: '',
   descripcion: '',
-  etiquetas: '',
+  etiquetas: [],
   disponible: true,
   enOferta: false,
   descuento: '0',
@@ -41,7 +42,7 @@ function aForm(p: Product): Form {
     nombre: p.nombre,
     categoriaId: p.categoriaId,
     descripcion: p.descripcion,
-    etiquetas: p.etiquetas.join(', '),
+    etiquetas: p.etiquetas,
     disponible: p.disponible,
     enOferta: p.enOferta,
     descuento: String(p.descuento),
@@ -75,7 +76,7 @@ function aProducto(f: Form, categorias: Categoria[]): Product | string {
     categoria: categoria.nombre,
     descripcion: f.descripcion.trim(),
     imagen: f.imagen,
-    etiquetas: [...new Set(f.etiquetas.split(',').map((t) => t.trim()).filter(Boolean))],
+    etiquetas: f.etiquetas,
     disponible: f.disponible,
     enOferta: f.enOferta,
     descuento,
@@ -96,12 +97,16 @@ export default function EditarProducto() {
   const [imagenOriginal, setImagenOriginal] = useState('')
   const [archivo, setArchivo] = useState<ArchivoImagen | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     listarCategorias()
       .then(setCategorias)
+      .catch((e: Error) => setError(e.message))
+    listarEtiquetas()
+      .then(setEtiquetas)
       .catch((e: Error) => setError(e.message))
     if (nuevo) return
     obtenerProducto(idRuta)
@@ -186,9 +191,12 @@ export default function EditarProducto() {
               ))}
             </select>
           </Campo>
-          <Campo label="Etiquetas" ayuda="Separadas por coma. Ej: sin TACC, vegano">
-            <input value={form.etiquetas} onChange={(e) => set('etiquetas', e.target.value)} className="campo" />
-          </Campo>
+          <EtiquetasInput
+            seleccionadas={form.etiquetas}
+            onChange={(t) => set('etiquetas', t)}
+            disponibles={etiquetas}
+            onDisponibles={setEtiquetas}
+          />
         </div>
 
         <Campo label="Descripción">
