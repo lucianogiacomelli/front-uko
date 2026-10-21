@@ -76,14 +76,6 @@
   animation: fade-up 0.6s ease both;
 }
 
-/* Bandas de color del inicio: degradé diagonal dentro del mismo tono */
-.banda-categorias {
-  background: linear-gradient(135deg, var(--color-bordo), #7a2128);
-}
-.banda-ofertas {
-  background: linear-gradient(135deg, var(--color-verde-oscuro), #7a9636);
-}
-
 /* Bordes del carrusel de categorías: se difuminan para que las tarjetas no se corten de golpe */
 .fade-edges {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
