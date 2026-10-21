@@ -56,10 +56,14 @@ export default function Carrito() {
               return (
                 <li
                   key={clave}
-                  className="flex flex-wrap items-center gap-4 rounded-2xl border border-bordo/15 border-l-4 border-l-bordo bg-white p-4 shadow-card"
+                  className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 rounded-2xl border border-bordo/15 border-l-4 border-l-bordo bg-white p-4 shadow-card sm:flex"
                 >
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/producto/${l.productoId}`} className="font-extrabold text-bordo hover:text-verde">
+                  {/* En celular: nombre y "Quitar" arriba, cantidad y subtotal abajo */}
+                  <div className="min-w-0 flex-1 break-words">
+                    <Link
+                      to={`/producto/${l.productoId}`}
+                      className="font-extrabold text-bordo hover:text-verde"
+                    >
                       {l.nombre}
                     </Link>
                     {l.etiqueta && (
@@ -71,7 +75,7 @@ export default function Carrito() {
                     {!l.disponible && <p className="text-xs font-bold text-bordo/60">Sin stock</p>}
                   </div>
 
-                  <div className="flex items-center gap-1 rounded-full bg-bordo p-1 shadow-md">
+                  <div className="order-3 flex items-center gap-1 justify-self-start rounded-full bg-bordo p-1 shadow-md sm:order-none">
                     <button
                       type="button"
                       onClick={() => cambiarCantidad(l.productoId, l.etiqueta, l.cantidad - 1)}
@@ -93,12 +97,12 @@ export default function Carrito() {
                     </button>
                   </div>
 
-                  <p className="w-28 text-right text-lg font-black text-bordo">{price.format(l.subtotal)}</p>
+                  <p className="order-4 text-right text-lg font-black text-bordo sm:order-none sm:w-28">{price.format(l.subtotal)}</p>
 
                   <button
                     type="button"
                     onClick={() => quitar(l.productoId, l.etiqueta)}
-                    className="text-sm font-bold text-bordo/60 underline underline-offset-4 hover:text-bordo"
+                    className="order-2 self-start text-sm font-bold text-bordo/60 underline underline-offset-4 hover:text-bordo sm:order-none sm:self-center"
                   >
                     Quitar
                   </button>
