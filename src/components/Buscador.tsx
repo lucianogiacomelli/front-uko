@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { buscarProductos } from '../data/busqueda'
 import { price } from '../data/format'
@@ -22,6 +22,7 @@ export default function Buscador() {
   const { products } = useProducts()
 
   const [texto, setTexto] = useState(qUrl)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [qAnterior, setQAnterior] = useState(qUrl)
   const [rutaAnterior, setRutaAnterior] = useState(pathname)
   const [abierto, setAbierto] = useState(false)
@@ -62,21 +63,26 @@ export default function Buscador() {
   const mostrar = abierto && !enProductos && texto.trim() !== ''
   const enOfertaTotal = resultados.filter(enOferta).length
 
-  function irAProducto(p: Product) {
+  // Cierra la lista y saca el foco del campo: en el celular eso baja el teclado.
+  // Las sugerencias y "Ver resultados" mantienen el foco al tocarlos, así que hay que soltarlo acá
+  function cerrar() {
     setAbierto(false)
+    inputRef.current?.blur()
+  }
+
+  function irAProducto(p: Product) {
+    cerrar()
     navigate(`/producto/${p.id}`)
   }
 
   function verTodos() {
-    setAbierto(false)
+    cerrar()
     const q = texto.trim()
     navigate(q ? `/productos?q=${encodeURIComponent(q)}` : '/productos')
   }
 
   function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    // En el celular, cierra el teclado
-    e.currentTarget.querySelector('input')?.blur()
     if (mostrar && visibles[activo]) irAProducto(visibles[activo])
     else verTodos()
   }
@@ -98,6 +104,7 @@ export default function Buscador() {
       <div className="relative">
         <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-bordo/50" />
         <input
+          ref={inputRef}
           type="search"
           value={texto}
           onChange={(e) => {

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
 import { CarritoProvider } from './carrito/CarritoProvider'
 import Layout from './components/Layout'
+import ScrollArriba from './components/ScrollArriba'
 import Carrito from './pages/Carrito'
 import Categoria from './pages/Categoria'
 import Home from './pages/Home'
@@ -16,6 +17,7 @@ const AdminApp = lazy(() => import('./admin/AdminApp'))
 export default function App() {
   return (
     <CarritoProvider>
+      <ScrollArriba />
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
