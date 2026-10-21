@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Material de trabajo local (PDFs de proveedores, fotos originales)
+files/
+Uko Dietetica/
