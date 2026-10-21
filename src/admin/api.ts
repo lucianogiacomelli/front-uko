@@ -106,6 +106,21 @@ export async function borrarImagen(url: string) {
   await supabase.storage.from(BUCKET).remove([url.slice(prefijo.length)])
 }
 
+export async function listarEtiquetas(): Promise<string[]> {
+  const { data, error } = await supabase.from('etiquetas').select('nombre').order('nombre')
+  if (error) fallo(error)
+  return data.map((e) => e.nombre as string)
+}
+
+// Mayúsculas y espacios no cuentan: "Vegano" y " vegano" son la misma etiqueta (igual que el índice de la base)
+export const claveEtiqueta = (nombre: string) => nombre.trim().replace(/\s+/g, ' ').toLowerCase()
+
+export async function crearEtiqueta(nombre: string) {
+  const { error } = await supabase.from('etiquetas').insert({ nombre })
+  if (error?.code === '23505') throw new Error(`La etiqueta "${nombre}" ya existe. Seleccionala de la lista.`)
+  if (error) fallo(error)
+}
+
 // Con la cantidad de productos de cada una (incluye eliminados, que también bloquean el borrado)
 export async function listarCategorias(): Promise<CategoriaAdmin[]> {
   const { data, error } = await supabase
