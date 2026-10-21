@@ -67,9 +67,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categorías: carrusel horizontal con flechas en desktop */}
+      {/* Categorías: carrusel horizontal con flechas en desktop, banda bordo */}
       {categorias.length > 0 && (
-        <section className="bg-verde py-12 text-crema">
+        <section className="banda-categorias py-36 text-crema">
           <div className="mx-auto max-w-6xl px-4">
             <p className="kicker mx-auto mb-8 w-fit border-b-2 border-crema/50 pb-1.5 text-center">
               Explorá por categoría
@@ -79,7 +79,7 @@ export default function Home() {
                 type="button"
                 onClick={() => cats.mover(-1)}
                 aria-label="Categorías anteriores"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5 rotate-180" />
               </button>
@@ -110,7 +110,7 @@ export default function Home() {
                 type="button"
                 onClick={() => cats.mover(1)}
                 aria-label="Categorías siguientes"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5" />
               </button>
@@ -133,9 +133,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Oferta del mes: carrusel en bordo, al final para no chocar con el verde de categorías */}
+      {/* Oferta del mes: carrusel en banda verde, al final del inicio */}
       {!loading && !error && ofertas.length > 0 && (
-        <section className="bg-bordo py-14 text-crema">
+        <section className="banda-ofertas py-36 text-crema">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -152,7 +152,7 @@ export default function Home() {
                 type="button"
                 onClick={() => ofs.mover(-1)}
                 aria-label="Ofertas anteriores"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5 rotate-180" />
               </button>
@@ -172,7 +172,7 @@ export default function Home() {
                 type="button"
                 onClick={() => ofs.mover(1)}
                 aria-label="Ofertas siguientes"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-bordo shadow-lg transition hover:scale-105 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crema text-verde shadow-lg transition hover:scale-105 sm:flex"
               >
                 <ChevronIcon className="h-5 w-5" />
               </button>
