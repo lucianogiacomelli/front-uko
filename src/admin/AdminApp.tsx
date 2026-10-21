@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router'
 import { supabase } from '../lib/supabase'
+import Contacto from './Contacto'
 import EditarCategoria from './EditarCategoria'
 import EditarProducto from './EditarProducto'
 import ListaCategorias from './ListaCategorias'
@@ -15,6 +16,7 @@ const SECCIONES = [
   { to: '/admin', label: 'Productos', activa: (p: string) => p === '/admin' || p.startsWith('/admin/producto') },
   { to: '/admin/categorias', label: 'Categorías', activa: (p: string) => p.startsWith('/admin/categorias') },
   { to: '/admin/precios', label: 'Precios', activa: (p: string) => p.startsWith('/admin/precios') },
+  { to: '/admin/contacto', label: 'Contacto', activa: (p: string) => p.startsWith('/admin/contacto') },
 ]
 
 type Estado = { tipo: 'cargando' } | { tipo: 'anonimo' } | { tipo: 'sinPermiso'; email: string } | { tipo: 'admin'; email: string }
@@ -98,7 +100,7 @@ export default function AdminApp() {
               Salir
             </button>
           </div>
-          <nav className="grid w-full grid-cols-3 gap-1 rounded-full bg-crema-claro p-1 text-sm font-bold sm:flex sm:w-auto sm:bg-transparent sm:p-0">
+          <nav className="grid w-full grid-cols-4 gap-1 rounded-full bg-crema-claro p-1 text-sm font-bold sm:flex sm:w-auto sm:bg-transparent sm:p-0">
             {SECCIONES.map((s) => {
               const activa = s.activa(pathname)
               return (
@@ -106,7 +108,7 @@ export default function AdminApp() {
                   key={s.to}
                   to={s.to}
                   aria-current={activa ? 'page' : undefined}
-                  className={`rounded-full px-3 py-1.5 text-center whitespace-nowrap transition-colors ${activa ? 'bg-verde-claro text-bordo' : 'text-bordo/70 hover:text-bordo'}`}
+                  className={`rounded-full px-2 py-1.5 text-center whitespace-nowrap sm:px-3 transition-colors ${activa ? 'bg-verde-claro text-bordo' : 'text-bordo/70 hover:text-bordo'}`}
                 >
                   {s.label}
                 </Link>
@@ -125,6 +127,7 @@ export default function AdminApp() {
           <Route path="categorias/nueva" element={<EditarCategoria />} />
           <Route path="categorias/:id" element={<EditarCategoria />} />
           <Route path="precios" element={<ActualizarPrecios />} />
+          <Route path="contacto" element={<Contacto />} />
           <Route path="*" element={<p>Página no encontrada.</p>} />
         </Routes>
       </main>

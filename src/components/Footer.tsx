@@ -1,4 +1,4 @@
-import { contacto } from '../data/contacto'
+import { useContacto } from '../data/contacto'
 
 const year = new Date().getFullYear()
 
@@ -32,18 +32,19 @@ function MapPinIcon({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
-// Enlaces configurables. Mientras un valor esté vacío, el ícono apunta a "#" (boceto).
-const redes = [
-  {
-    label: 'Escribinos por WhatsApp',
-    href: contacto.whatsapp ? `https://wa.me/${contacto.whatsapp}` : '#',
-    Icon: WhatsAppIcon,
-  },
-  { label: 'Seguinos en Instagram', href: contacto.instagram || '#', Icon: InstagramIcon },
-  { label: 'Cómo llegar en Google Maps', href: contacto.googleMaps || '#', Icon: MapPinIcon },
-]
-
 export default function Footer() {
+  // Enlaces configurables desde el admin. Mientras un valor esté vacío, el ícono apunta a "#"
+  const contacto = useContacto()
+  const redes = [
+    {
+      label: 'Escribinos por WhatsApp',
+      href: contacto.whatsapp ? `https://wa.me/${contacto.whatsapp}` : '#',
+      Icon: WhatsAppIcon,
+    },
+    { label: 'Seguinos en Instagram', href: contacto.instagram || '#', Icon: InstagramIcon },
+    { label: 'Cómo llegar en Google Maps', href: contacto.googleMaps || '#', Icon: MapPinIcon },
+  ]
+
   return (
     <footer className="bg-verde-claro">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-8 text-sm sm:grid sm:grid-cols-3 sm:items-center">

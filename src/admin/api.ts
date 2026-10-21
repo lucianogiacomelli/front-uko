@@ -1,4 +1,5 @@
 import { PRODUCTO_SELECT, toProduct, type ProductoRow } from '../data/products'
+import { invalidarContacto, type Contacto } from '../data/contacto'
 import { invalidarProductos } from '../data/useProducts'
 import { supabase } from '../lib/supabase'
 import type { Categoria, Product } from '../types/product'
@@ -193,4 +194,18 @@ export async function aplicarPrecios(
   if (error) fallo(error)
   invalidarProductos()
   return data as number
+}
+
+// --- Links de contacto (footer y WhatsApp de pedidos) ---
+
+export async function guardarContacto(c: Contacto) {
+  const { data, error } = await supabase
+    .from('contacto')
+    .update({ whatsapp: c.whatsapp, instagram: c.instagram, google_maps: c.googleMaps })
+    .eq('id', 1)
+    .select('id')
+  if (error) fallo(error)
+  // Sin fila actualizada: falta la migración o RLS no dejó escribir
+  if (data.length === 0) throw new Error('No se pudo guardar. ¿Está aplicada la migración de contacto?')
+  invalidarContacto()
 }
