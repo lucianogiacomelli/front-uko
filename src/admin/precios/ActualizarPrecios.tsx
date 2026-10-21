@@ -9,10 +9,32 @@ import { leerPdf, type FilaProveedor } from './pdf'
 // Desde este puntaje se ofrece la fila más parecida para aceptar con un clic
 const UMBRAL_SUGERENCIA = 0.7
 
-type Fila = FilaProveedor & { i: number; firma: Firma }
+// i = posición en la lista de filas de todos los PDFs cargados
+type Fila = FilaProveedor & { i: number; firma: Firma; archivo: string }
 type Item = { producto: ProductoPrecio; variante: VariantePrecio; nombre: string; firma: Firma }
 type Origen = 'guardado' | 'exacto' | 'manual'
+type Asignacion = Record<string, { i: number; origen: Origen }>
 type Candidato = { i: number; puntaje: number }
+
+// Busca cada variante en las filas de todos los PDFs. Conserva las asignaciones previas;
+// si no hay, prueba el nombre recordado de una lista anterior y después el nombre igual al nuestro.
+// Las que siguen sin fila reciben las más parecidas como sugerencia.
+function emparejar(items: Item[], filas: Fila[], previa: Asignacion) {
+  const asignacion: Asignacion = {}
+  const sugerencias: Record<string, Candidato[]> = {}
+  for (const it of items) {
+    const id = it.variante.id
+    if (previa[id]) {
+      asignacion[id] = previa[id]
+      continue
+    }
+    const guardada = it.variante.nombreProveedor ? filas.find((f) => f.firma.clave === it.variante.nombreProveedor) : undefined
+    const exacta = guardada ?? filas.find((f) => f.firma.clave === it.firma.clave)
+    if (exacta) asignacion[id] = { i: exacta.i, origen: guardada ? 'guardado' : 'exacto' }
+    else sugerencias[id] = masParecidas(it.firma, filas).map(({ item, puntaje }) => ({ i: item.i, puntaje }))
+  }
+  return { asignacion, sugerencias }
+}
 
 const aNumero = (s: string) => Number(s.trim().replace(',', '.'))
 const margenValido = (s: string) => s.trim() !== '' && Number.isFinite(aNumero(s)) && aNumero(s) >= 0
@@ -20,10 +42,9 @@ const margenValido = (s: string) => s.trim() !== '' && Number.isFinite(aNumero(s
 export default function ActualizarPrecios() {
   const [datos, setDatos] = useState<{ productos: ProductoPrecio[]; categorias: CategoriaPrecio[] } | null>(null)
   const [filas, setFilas] = useState<Fila[] | null>(null)
-  const [archivo, setArchivo] = useState('')
   const [leyendo, setLeyendo] = useState(false)
   // Variante -> fila del PDF elegida, y cómo se eligió
-  const [asignacion, setAsignacion] = useState<Record<string, { i: number; origen: Origen }>>({})
+  const [asignacion, setAsignacion] = useState<Asignacion>({})
   const [sugerencias, setSugerencias] = useState<Record<string, Candidato[]>>({})
   // Márgenes en edición (texto). En productos, '' = usar el de la categoría
   const [margenCat, setMargenCat] = useState<Record<string, string>>({})
@@ -31,6 +52,8 @@ export default function ActualizarPrecios() {
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
   const [margenSeleccion, setMargenSeleccion] = useState('')
   const [margenLista, setMargenLista] = useState('')
+  // PDF al que se aplica la ganancia general ('' = todos)
+  const [archivoMargen, setArchivoMargen] = useState('')
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set())
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [buscando, setBuscando] = useState<string | null>(null)
@@ -63,34 +86,57 @@ export default function ActualizarPrecios() {
     [datos],
   )
 
-  async function elegirPdf(file: File | undefined) {
-    if (!file) return
+  // Agrega PDFs a los ya cargados: un producto puede estar en la lista de cualquier proveedor
+  async function agregarPdfs(archivos: File[]) {
+    const actuales = filas ?? []
+    const nuevos = archivos.filter((f) => !actuales.some((x) => x.archivo === f.name))
+    if (nuevos.length === 0) return
     setLeyendo(true)
     setError(null)
     setAviso(null)
     try {
-      const leidas = (await leerPdf(file)).map((f, i) => ({ ...f, i, firma: firma(f.nombre) }))
-      if (leidas.length === 0) throw new Error('No se encontraron productos con precio en el PDF.')
-      const asig: typeof asignacion = {}
-      const sug: typeof sugerencias = {}
-      for (const it of items) {
-        // Primero el nombre guardado de una lista anterior, después el nombre igual al nuestro
-        const guardada = it.variante.nombreProveedor ? leidas.find((f) => f.firma.clave === it.variante.nombreProveedor) : undefined
-        const exacta = guardada ?? leidas.find((f) => f.firma.clave === it.firma.clave)
-        if (exacta) asig[it.variante.id] = { i: exacta.i, origen: guardada ? 'guardado' : 'exacto' }
-        else sug[it.variante.id] = masParecidas(it.firma, leidas).map(({ item, puntaje }) => ({ i: item.i, puntaje }))
+      const todas = [...actuales]
+      const vacios: string[] = []
+      for (const file of nuevos) {
+        const leidas = await leerPdf(file)
+        if (leidas.length === 0) vacios.push(file.name)
+        for (const f of leidas) todas.push({ ...f, i: todas.length, firma: firma(f.nombre), archivo: file.name })
       }
-      setFilas(leidas)
-      setArchivo(file.name)
-      setAsignacion(asig)
-      setSugerencias(sug)
-      setSeleccion(new Set())
-      setAbiertas(new Set())
+      if (vacios.length) setError(`No se encontraron productos con precio en: ${vacios.join(', ')}.`)
+      if (todas.length === 0) return
+      const r = emparejar(items, todas, asignacion)
+      setFilas(todas)
+      setAsignacion(r.asignacion)
+      setSugerencias(r.sugerencias)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo leer el PDF.')
     } finally {
       setLeyendo(false)
     }
+  }
+
+  // Saca un PDF: sus filas dejan de estar asignadas y se vuelve a buscar en los que quedan
+  function quitarPdf(nombre: string) {
+    if (!filas) return
+    const quedan = filas.filter((f) => f.archivo !== nombre)
+    const nuevoIndice = new Map(quedan.map((f, i) => [f.i, i]))
+    const previa: Asignacion = {}
+    for (const [id, a] of Object.entries(asignacion)) {
+      const i = nuevoIndice.get(a.i)
+      if (i !== undefined) previa[id] = { ...a, i }
+    }
+    if (archivoMargen === nombre) setArchivoMargen('')
+    if (quedan.length === 0) {
+      setFilas(null)
+      setAsignacion({})
+      setSugerencias({})
+      return
+    }
+    const renumeradas = quedan.map((f, i) => ({ ...f, i }))
+    const r = emparejar(items, renumeradas, previa)
+    setFilas(renumeradas)
+    setAsignacion(r.asignacion)
+    setSugerencias(r.sugerencias)
   }
 
   if (!datos) return error ? <Aviso mensaje={error} /> : <p>Cargando…</p>
@@ -182,7 +228,8 @@ export default function ActualizarPrecios() {
       const n = await aplicarPrecios(variantes, categorias, productos)
       setAviso(`Listo: se actualizaron ${n} precios. Los nombres del proveedor quedaron guardados para la próxima lista.`)
       setFilas(null)
-      setArchivo('')
+      setAsignacion({})
+      setSugerencias({})
       cargar()
     } catch (e) {
       setError((e as Error).message)
@@ -196,7 +243,15 @@ export default function ActualizarPrecios() {
     const fila = filas?.[asignacion[it.variante.id].i]
     return fila && precioNuevo(fila.costo, margenDe(it.producto)) !== it.variante.precio
   }).length
-  const categoriasDeLista = [...new Set(asignadas.map((it) => it.producto.categoriaId))]
+  const archivoDe = (it: Item) => filas![asignacion[it.variante.id].i].archivo
+  const archivos = [...new Set((filas ?? []).map((f) => f.archivo))].map((nombre) => ({
+    nombre,
+    filas: filas!.filter((f) => f.archivo === nombre).length,
+    usadas: asignadas.filter((it) => archivoDe(it) === nombre).length,
+  }))
+  const categoriasDeLista = [
+    ...new Set(asignadas.filter((it) => !archivoMargen || archivoDe(it) === archivoMargen).map((it) => it.producto.categoriaId)),
+  ]
   const sugeridas = items.filter((it) => !asignacion[it.variante.id] && mejorSugerencia(it.variante.id)).length
 
   return (
@@ -221,19 +276,36 @@ export default function ActualizarPrecios() {
         <input
           type="file"
           accept="application/pdf"
+          multiple
           disabled={leyendo}
           onChange={(e) => {
-            elegirPdf(e.target.files?.[0])
+            agregarPdfs([...(e.target.files ?? [])])
             e.target.value = ''
           }}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema"
-          aria-label="PDF del proveedor"
+          aria-label="PDFs de los proveedores"
         />
-        {leyendo && <span className="text-sm font-semibold">Leyendo el PDF…</span>}
-        {filas && (
-          <span className="text-sm text-bordo/70">
-            <strong>{archivo}</strong>: {filas.length} filas con precio
-          </span>
+        <span className="text-sm text-bordo/60">Podés elegir varios PDFs juntos o ir agregándolos.</span>
+        {leyendo && <span className="text-sm font-semibold">Leyendo…</span>}
+        {archivos.length > 0 && (
+          <ul className="flex w-full flex-wrap gap-2">
+            {archivos.map((a) => (
+              <li key={a.nombre} className="flex items-center gap-2 rounded-full bg-verde-claro px-3 py-1.5 text-sm">
+                <strong>{a.nombre}</strong>
+                <span className="text-bordo/70">
+                  {a.filas} filas · {a.usadas} usadas
+                </span>
+                <button
+                  type="button"
+                  onClick={() => quitarPdf(a.nombre)}
+                  className="font-bold text-bordo/60 hover:text-bordo"
+                  aria-label={`Quitar ${a.nombre}`}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -243,8 +315,20 @@ export default function ActualizarPrecios() {
       {filas && (
         <>
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4 text-sm">
-            <label className="flex items-center gap-2 font-semibold">
-              Ganancia para toda la lista
+            <label className="flex flex-wrap items-center gap-2 font-semibold">
+              Ganancia para
+              {archivos.length > 1 ? (
+                <select value={archivoMargen} onChange={(e) => setArchivoMargen(e.target.value)} className="campo w-auto" aria-label="PDF">
+                  <option value="">todos los PDFs</option>
+                  {archivos.map((a) => (
+                    <option key={a.nombre} value={a.nombre}>
+                      {a.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                'toda la lista'
+              )}
               <input inputMode="decimal" value={margenLista} onChange={(e) => setMargenLista(e.target.value)} className="campo w-20" />%
             </label>
             <button type="button" onClick={margenParaLista} disabled={categoriasDeLista.length === 0} className="btn-pill !py-2 disabled:opacity-60">
@@ -343,6 +427,7 @@ export default function ActualizarPrecios() {
                                 {fila ? (
                                   <span>
                                     {fila.nombre} · <strong>{price.format(fila.costo)}</strong>
+                                    {archivos.length > 1 && <span className="text-xs text-bordo/50"> · {fila.archivo}</span>}
                                     {a.origen !== 'manual' && <span className="text-xs text-bordo/50"> ({a.origen === 'guardado' ? 'recordado' : 'igual'})</span>}
                                     <button type="button" onClick={() => desasignar(it.variante.id)} className="ml-2 text-xs font-semibold text-bordo/60 hover:text-bordo">
                                       Quitar
@@ -457,7 +542,10 @@ function Buscador({ filas, sugeridas, onElegir }: { filas: Fila[]; sugeridas: Ca
               onClick={() => onElegir(i)}
               className="flex w-full justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-verde-claro"
             >
-              <span>{filas[i].nombre}</span>
+              <span>
+                {filas[i].nombre}
+                <span className="ml-2 text-xs text-bordo/50">{filas[i].archivo}</span>
+              </span>
               <strong className="tabular-nums">{price.format(filas[i].costo)}</strong>
             </button>
           </li>
