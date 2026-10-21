@@ -3,8 +3,8 @@ import { price } from '../../data/format'
 import { aplicarPrecios, cargarPrecios, type CategoriaPrecio, type ProductoPrecio, type VariantePrecio } from '../api'
 import { Aviso } from '../ui'
 import { firma, masParecidas, normalizar, type Firma } from './coincidencias'
-import { exportarListaPdf } from './exportarLista'
-import { leerPdf, type FilaProveedor } from './pdf'
+import { exportarListaDocx, exportarListaPdf } from './exportarLista'
+import { leerLista, type FilaProveedor } from './leerLista'
 
 // Desde este puntaje se ofrece la fila más parecida para aceptar con un clic
 const UMBRAL_SUGERENCIA = 0.7
@@ -67,7 +67,8 @@ export default function ActualizarPrecios() {
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
-  const [exportando, setExportando] = useState(false)
+  // Formato que se está generando para descargar
+  const [exportando, setExportando] = useState<'pdf' | 'docx' | null>(null)
 
   function cargar() {
     cargarPrecios()
@@ -104,7 +105,7 @@ export default function ActualizarPrecios() {
       const todas = [...actuales]
       const vacios: string[] = []
       for (const file of nuevos) {
-        const leidas = await leerPdf(file)
+        const leidas = await leerLista(file)
         if (leidas.length === 0) vacios.push(file.name)
         for (const f of leidas) {
           todas.push({ ...f, i: todas.length, firma: firma(f.nombre), archivo: file.name, seccionClave: normalizar(f.seccion) })
@@ -219,15 +220,15 @@ export default function ActualizarPrecios() {
     setMargenLista('')
   }
 
-  async function exportar() {
-    setExportando(true)
+  async function exportar(formato: 'pdf' | 'docx') {
+    setExportando(formato)
     setError(null)
     try {
-      await exportarListaPdf()
+      await (formato === 'pdf' ? exportarListaPdf() : exportarListaDocx())
     } catch {
-      setError('No se pudo generar el PDF de la lista de precios.')
+      setError(`No se pudo generar la lista de precios en ${formato === 'pdf' ? 'PDF' : 'Word'}.`)
     } finally {
-      setExportando(false)
+      setExportando(null)
     }
   }
 
@@ -298,14 +299,25 @@ export default function ActualizarPrecios() {
     <section className={seleccion.size > 0 ? 'pb-24' : ''}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">Actualizar precios</h1>
-        <button
-          type="button"
-          onClick={exportar}
-          disabled={exportando}
-          className="rounded-full border border-verde px-5 py-2.5 text-sm font-bold text-verde transition hover:bg-verde-claro disabled:opacity-60"
-        >
-          {exportando ? 'Generando PDF…' : 'Descargar lista de precios (PDF)'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
+          <span className="text-bordo/70">Descargar lista de precios:</span>
+          {(
+            [
+              ['pdf', 'PDF'],
+              ['docx', 'Word (editable)'],
+            ] as const
+          ).map(([formato, label]) => (
+            <button
+              key={formato}
+              type="button"
+              onClick={() => exportar(formato)}
+              disabled={exportando !== null}
+              className="rounded-full border border-verde px-4 py-2 text-verde transition hover:bg-verde-claro disabled:opacity-60"
+            >
+              {exportando === formato ? 'Generando…' : label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap rounded-full border border-linea bg-white p-1 text-sm font-bold sm:w-fit" role="tablist">
@@ -329,14 +341,14 @@ export default function ActualizarPrecios() {
       </div>
       <p className="mt-3 mb-5 max-w-2xl text-sm text-bordo/70">
         {final
-          ? 'Subí una lista con los precios de venta ya calculados, como la lista impresa del local. Se buscan tus productos y se guarda el precio tal como viene en el PDF, sin sumar ganancia.'
+          ? 'Subí una lista con los precios de venta ya calculados: la que descargás acá (en PDF o Word, editada o no) o la lista impresa del local. Se buscan tus productos y se guarda el precio tal como viene, sin sumar ganancia.'
           : 'Subí la lista del proveedor en PDF. Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.'}
       </p>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4">
         <input
           type="file"
-          accept="application/pdf"
+          accept={final ? '.pdf,.docx' : '.pdf'}
           multiple
           disabled={leyendo}
           onChange={(e) => {
@@ -344,9 +356,11 @@ export default function ActualizarPrecios() {
             e.target.value = ''
           }}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema"
-          aria-label={final ? 'PDFs con precios finales' : 'PDFs de los proveedores'}
+          aria-label={final ? 'Listas con precios finales' : 'PDFs de los proveedores'}
         />
-        <span className="text-sm text-bordo/60">Podés elegir varios PDFs juntos o ir agregándolos.</span>
+        <span className="text-sm text-bordo/60">
+          {final ? 'PDF o Word (.docx). ' : ''}Podés elegir varios archivos juntos o ir agregándolos.
+        </span>
         {leyendo && <span className="text-sm font-semibold">Leyendo…</span>}
         {archivos.length > 0 && (
           <ul className="flex w-full flex-wrap gap-2">

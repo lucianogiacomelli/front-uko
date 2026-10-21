@@ -1,9 +1,12 @@
-// Lectura de listas de precios en PDF en el navegador: las de los proveedores y la nuestra.
+// Lectura de listas de precios en el navegador (PDF o Word): las de los proveedores y la nuestra.
 // Cada renglón con un nombre y un precio al final es una fila; el resto (títulos, notas) se ignora.
 
 // seccion: último título leído antes de la fila (la categoría en nuestra lista)
 export type FilaProveedor = { nombre: string; precio: number; seccion: string }
 type Leida = Omit<FilaProveedor, 'seccion'>
+
+// Viñetas de lista: las nuestras (●) y las que ponen Word o Google Docs al exportar a PDF
+const VIÑETA = /^[●•▪◦·]\s*/
 
 const NUMERO = String.raw`\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?`
 // Uno o varios precios al final del renglón: "19.760,00", "$ 7.560,00", "13280", "$3.087,50 / $7.925,00"
@@ -22,7 +25,7 @@ export function leerRenglon(texto: string): Leida[] {
   const t = texto
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/^[●•▪◦·]\s*/, '')
+    .replace(VIÑETA, '')
     .replace(NOTA_FINAL, '')
     .replace(/\s+c\/u\.?$/i, '')
     .replace(MARCAS_FINALES, '')
@@ -82,7 +85,7 @@ function unirContinuaciones(lineas: Renglon[]): string[] {
   let viñetaX: number | null = null
   for (const l of lineas) {
     const anterior = resultado.at(-1)
-    if (/^[●•▪◦·]/.test(l.texto)) {
+    if (VIÑETA.test(l.texto)) {
       resultado.push(l.texto)
       viñetaX = l.x
     } else if (anterior !== undefined && ((viñetaX !== null && l.x > viñetaX + 5) || /[/:,(]$/.test(anterior) || /^[$/]/.test(l.texto))) {
@@ -95,7 +98,7 @@ function unirContinuaciones(lineas: Renglon[]): string[] {
   return resultado
 }
 
-export async function leerPdf(file: File): Promise<FilaProveedor[]> {
+async function leerPdf(file: File): Promise<FilaProveedor[]> {
   // pdf.js pesa bastante: se descarga solo al usar esta pantalla
   const pdfjs = await import('pdfjs-dist')
   const { default: workerSrc } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
@@ -113,10 +116,37 @@ export async function leerPdf(file: File): Promise<FilaProveedor[]> {
     for (const r of unirContinuaciones(renglones(piezas))) {
       const leidas = leerRenglon(r)
       // Un renglón sin precio y sin viñeta es un título: las filas que siguen pertenecen a él
-      if (leidas.length === 0 && !/^[●•▪◦·]/.test(r)) seccion = r.trim()
+      if (leidas.length === 0 && !VIÑETA.test(r)) seccion = r.trim()
       for (const f of leidas) filas.push({ ...f, seccion })
     }
   }
   await tarea.destroy()
   return filas
+}
+
+const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+// Word (.docx), por ejemplo la lista exportada y editada en Word o Google Docs.
+// Cada párrafo es un renglón; los de lista con viñetas son productos y los demás, títulos.
+async function leerDocx(file: File): Promise<FilaProveedor[]> {
+  const { default: JSZip } = await import('jszip')
+  const zip = await JSZip.loadAsync(await file.arrayBuffer())
+  const xml = await zip.file('word/document.xml')?.async('string')
+  if (!xml) throw new Error(`${file.name} no es un documento de Word válido.`)
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const filas: FilaProveedor[] = []
+  let seccion = ''
+  for (const p of doc.getElementsByTagNameNS(W, 'p')) {
+    const texto = [...p.getElementsByTagNameNS(W, 't')].map((t) => t.textContent).join('').trim()
+    if (!texto) continue
+    const leidas = leerRenglon(texto)
+    const viñeta = p.getElementsByTagNameNS(W, 'numPr').length > 0 || VIÑETA.test(texto)
+    if (leidas.length === 0 && !viñeta) seccion = texto
+    for (const f of leidas) filas.push({ ...f, seccion })
+  }
+  return filas
+}
+
+export function leerLista(file: File): Promise<FilaProveedor[]> {
+  return /\.docx$/i.test(file.name) ? leerDocx(file) : leerPdf(file)
 }
