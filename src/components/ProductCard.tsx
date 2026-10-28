@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { useCarrito } from '../carrito/CarritoContext'
 import { price } from '../data/format'
 import { enOferta, precioConOferta } from '../data/ofertas'
+import { miniatura } from '../data/products'
 import type { Product } from '../types/product'
 
 type Props = { product: Product; showCategory?: boolean }
@@ -40,7 +41,7 @@ export default function ProductCard({ product, showCategory = true }: Props) {
         <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-white p-4">
           {product.imagen ? (
             <img
-              src={product.imagen}
+              src={miniatura(product.imagen)}
               alt={product.nombre}
               loading="lazy"
               className="max-h-full max-w-full rounded-xl object-contain transition duration-500 group-hover:scale-105"

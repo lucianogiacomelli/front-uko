@@ -6,6 +6,7 @@ import ProductGrid from '../components/ProductGrid'
 import SectionHead from '../components/SectionHead'
 import { useCarousel } from '../hooks/useCarousel'
 import { enOferta } from '../data/ofertas'
+import { miniatura } from '../data/products'
 import { useProducts } from '../data/useProducts'
 
 const FEATURED_COUNT = 8
@@ -97,7 +98,7 @@ export default function Home() {
                   >
                     <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-crema/25 bg-crema text-verde shadow-lg transition group-hover:scale-105 sm:h-28 sm:w-28">
                       {c.imagen ? (
-                        <img src={c.imagen} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+                        <img src={miniatura(c.imagen)} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
                       ) : (
                         <LeafIcon className="h-9 w-9" />
                       )}

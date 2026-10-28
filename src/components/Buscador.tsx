@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { buscarProductos } from '../data/busqueda'
 import { price } from '../data/format'
 import { enOferta, precioConOferta } from '../data/ofertas'
+import { miniatura } from '../data/products'
 import { useProducts } from '../data/useProducts'
 import type { Product } from '../types/product'
 import { SearchIcon } from './Icons'
@@ -154,7 +155,7 @@ export default function Buscador() {
                         </span>
                       )}
                       <img
-                        src={p.imagen || '/brand/isotipo-k.png'}
+                        src={p.imagen ? miniatura(p.imagen) : '/brand/isotipo-k.png'}
                         alt=""
                         loading="lazy"
                         className={p.imagen ? 'max-h-full max-w-full rounded-md object-contain' : 'h-1/2 w-1/2 object-contain opacity-30 mix-blend-multiply'}

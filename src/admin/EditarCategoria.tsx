@@ -39,7 +39,7 @@ export default function EditarCategoria() {
     setGuardando(true)
     setError(null)
     try {
-      await guardarConImagen(`categorias/${id}`, archivo?.file ?? null, form!.imagen, imagenOriginal, (imagen) =>
+      await guardarConImagen(`categorias/${id}`, archivo, form!.imagen, imagenOriginal, (imagen) =>
         guardarCategoria({ id, nombre, imagen }, nueva),
       )
       navigate('/admin/categorias')
