@@ -1,4 +1,22 @@
-const MAX_IMAGEN = 5 * 1024 * 1024
+// Se achica antes de subir, así que se aceptan fotos grandes (las del celular pesan 3 a 10 MB)
+const MAX_IMAGEN = 25 * 1024 * 1024
+// Lado más largo al guardar: alcanza para la ficha del producto en pantallas de alta densidad
+const LADO_MAX = 1200
+
+// Redimensiona y pasa a WebP: una foto de celular queda en unos 100-200 KB.
+// Si la original ya es más liviana (una imagen chica u optimizada), se usa esa.
+async function comprimir(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file)
+  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * escala)
+  canvas.height = Math.round(bitmap.height * escala)
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/webp', 0.82))
+  if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file
+  return new File([blob], file.name.replace(/\.[^.]*$/, '') + '.webp', { type: 'image/webp' })
+}
 
 // Imagen elegida y todavía no subida, con su vista previa en data URL
 export type ArchivoImagen = { file: File; url: string }
@@ -19,11 +37,15 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
   function elegir(file: File | undefined) {
     if (!file) return
     if (!file.type.startsWith('image/')) return onError('El archivo tiene que ser una imagen.')
-    if (file.size > MAX_IMAGEN) return onError('La imagen pesa más de 5 MB.')
-    const reader = new FileReader()
-    reader.onload = () => onArchivo({ file, url: String(reader.result) })
-    reader.onerror = () => onError('No se pudo leer la imagen.')
-    reader.readAsDataURL(file)
+    if (file.size > MAX_IMAGEN) return onError('La imagen pesa más de 25 MB.')
+    comprimir(file)
+      .then((final) => {
+        const reader = new FileReader()
+        reader.onload = () => onArchivo({ file: final, url: String(reader.result) })
+        reader.onerror = () => onError('No se pudo leer la imagen.')
+        reader.readAsDataURL(final)
+      })
+      .catch(() => onError('No se pudo leer la imagen. Probá con otro formato (JPG, PNG o WebP).'))
   }
 
   return (
