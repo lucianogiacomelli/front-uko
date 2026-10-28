@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { price } from '../data/format'
 import { slugify } from '../data/products'
-import type { Categoria, Product, Variante } from '../types/product'
-import { guardarConImagen, guardarProducto, listarCategorias, listarEtiquetas, obtenerProducto } from './api'
+import type { Product, Variante } from '../types/product'
+import { guardarConImagen, guardarProducto, listarCategorias, listarEtiquetas, obtenerProducto, type CategoriaAdmin } from './api'
 import EtiquetasInput from './EtiquetasInput'
 import ImagenInput, { type ArchivoImagen } from './ImagenInput'
 import { Aviso, BarraAcciones, Campo, Cargando, Ocupado } from './ui'
@@ -51,8 +52,28 @@ function aForm(p: Product): Form {
   }
 }
 
+// Producto nuevo desde una fila de la lista de precios (Actualizar precios lo abre con estos parámetros).
+// En una lista del proveedor viene el costo y el precio se calcula con la ganancia de la categoría elegida;
+// en una lista con precios finales viene el precio.
+type DesdeLista = { nombre: string; clave: string; costo: number | null; precio: number | null }
+
+function leerDesdeLista(params: URLSearchParams): DesdeLista | null {
+  const nombre = params.get('nombre')
+  if (!nombre) return null
+  const num = (k: string) => (params.get(k) ? Number(params.get(k)) : null)
+  return { nombre, clave: params.get('clave') ?? '', costo: num('costo'), precio: num('precio') }
+}
+
+// Las listas suelen venir en mayúsculas: "ALMENDRAS X KG" -> "Almendras x kg"
+const sinMayusculas = (t: string) => (t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase() : t)
+
+function formDesdeLista(d: DesdeLista): Form {
+  const nombre = sinMayusculas(d.nombre)
+  return { ...VACIO, nombre, id: slugify(nombre), variantes: [{ ...VACIO.variantes[0], precio: d.precio === null ? '' : String(d.precio) }] }
+}
+
 // Valida y arma el producto. Devuelve el primer error encontrado.
-function aProducto(f: Form, categorias: Categoria[]): Product | string {
+function aProducto(f: Form, categorias: CategoriaAdmin[]): Product | string {
   const id = f.id.trim()
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) return 'El id solo puede tener minúsculas, números y guiones.'
   if (!f.nombre.trim()) return 'Falta el nombre.'
@@ -91,12 +112,16 @@ export default function EditarProducto() {
   const navigate = useNavigate()
   // La lista pasa sus filtros para volver a la misma página
   const volver = `/admin${(useLocation().state as { volver?: string } | null)?.volver ?? ''}`
-  const [form, setForm] = useState<Form | null>(nuevo ? VACIO : null)
+  const [params] = useSearchParams()
+  const [desdeLista] = useState(() => (nuevo ? leerDesdeLista(params) : null))
+  const [form, setForm] = useState<Form | null>(nuevo ? (desdeLista ? formDesdeLista(desdeLista) : VACIO) : null)
   const [idEditado, setIdEditado] = useState(false)
+  // Con costo del proveedor, el precio sigue a la categoría hasta que se escribe a mano
+  const [precioEditado, setPrecioEditado] = useState(false)
   // Imagen guardada en la base: se borra del storage si se reemplaza o se quita
   const [imagenOriginal, setImagenOriginal] = useState('')
   const [archivo, setArchivo] = useState<ArchivoImagen | null>(null)
-  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [categorias, setCategorias] = useState<CategoriaAdmin[]>([])
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -124,6 +149,14 @@ export default function EditarProducto() {
   const setVariante = (i: number, v: Partial<VarianteForm>) =>
     set('variantes', form.variantes.map((x, j) => (j === i ? { ...x, ...v } : x)))
 
+  function cambiarCategoria(categoriaId: string) {
+    const margen = categorias.find((c) => c.id === categoriaId)?.margen
+    const costo = desdeLista?.costo
+    if (costo == null || margen === undefined || precioEditado) return set('categoriaId', categoriaId)
+    const precio = String(Math.round(costo * (1 + margen / 100)))
+    setForm({ ...form!, categoriaId, variantes: form!.variantes.map((v, i) => (i === 0 ? { ...v, precio } : v)) })
+  }
+
   function cambiarNombre(nombre: string) {
     // Al crear, el id sigue al nombre hasta que se edita a mano
     setForm({ ...form!, nombre, id: nuevo && !idEditado ? slugify(nombre) : form!.id })
@@ -137,8 +170,10 @@ export default function EditarProducto() {
     setError(null)
     try {
       await guardarConImagen(`productos/${producto.id}`, archivo?.file ?? null, producto.imagen, imagenOriginal, (imagen) =>
-        guardarProducto({ ...producto, imagen }, nuevo),
+        guardarProducto({ ...producto, imagen }, nuevo, desdeLista?.costo != null ? { costo: desdeLista.costo, nombre: desdeLista.clave } : undefined),
       )
+      // Abierto en otra pestaña desde Actualizar precios: se cierra y queda esa pantalla, con las listas cargadas
+      if (desdeLista) window.close()
       navigate(volver)
     } catch (err) {
       setError((err as Error).message)
@@ -180,7 +215,7 @@ export default function EditarProducto() {
             />
           </Campo>
           <Campo label="Categoría">
-            <select required value={form.categoriaId} onChange={(e) => set('categoriaId', e.target.value)} className="campo">
+            <select required value={form.categoriaId} onChange={(e) => cambiarCategoria(e.target.value)} className="campo">
               <option value="" disabled>
                 Elegí una categoría
               </option>
@@ -216,6 +251,17 @@ export default function EditarProducto() {
 
         <fieldset className="min-w-0">
           <legend className="mb-2 text-sm font-semibold">Presentaciones y precios</legend>
+          {desdeLista && (
+            <p className="mb-3 rounded-lg bg-verde-claro px-3 py-2 text-sm">
+              De la lista: <strong>{desdeLista.nombre}</strong>
+              {desdeLista.costo !== null && (
+                <>
+                  {' '}
+                  · costo <strong>{price.format(desdeLista.costo)}</strong>. El precio se calcula con la ganancia de la categoría que elijas.
+                </>
+              )}
+            </p>
+          )}
           <div className="grid gap-2">
             {form.variantes.map((v, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-linea p-2 sm:border-0 sm:p-0">
@@ -231,7 +277,10 @@ export default function EditarProducto() {
                   placeholder="Precio"
                   inputMode="decimal"
                   value={v.precio}
-                  onChange={(e) => setVariante(i, { precio: e.target.value })}
+                  onChange={(e) => {
+                    if (i === 0) setPrecioEditado(true)
+                    setVariante(i, { precio: e.target.value })
+                  }}
                   className="campo w-24 flex-1 sm:w-32 sm:flex-none"
                 />
                 <label className="flex items-center gap-1.5 text-sm font-medium">

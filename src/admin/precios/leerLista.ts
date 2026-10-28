@@ -1,4 +1,5 @@
-// Lectura de listas de precios en el navegador (PDF o Word): las de los proveedores y la nuestra.
+// Lectura de listas de precios en el navegador (PDF, Word, Excel o CSV): las de los proveedores y la nuestra.
+// Las planillas se leen en leerPlanilla.ts.
 // Cada renglón con un nombre y un precio al final es una fila; el resto (títulos, notas) se ignora.
 
 // seccion: último título leído antes de la fila (la categoría en nuestra lista)
@@ -147,6 +148,7 @@ async function leerDocx(file: File): Promise<FilaProveedor[]> {
   return filas
 }
 
-export function leerLista(file: File): Promise<FilaProveedor[]> {
+export async function leerLista(file: File): Promise<FilaProveedor[]> {
+  if (/\.(xlsx|csv)$/i.test(file.name)) return (await import('./leerPlanilla')).leerPlanilla(file)
   return /\.docx$/i.test(file.name) ? leerDocx(file) : leerPdf(file)
 }

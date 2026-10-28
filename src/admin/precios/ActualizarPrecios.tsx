@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { price } from '../../data/format'
 import { aplicarPrecios, cargarPrecios, type CategoriaPrecio, type ProductoPrecio, type VariantePrecio } from '../api'
 import { Aviso, Cargando, Ocupado, Spinner } from '../ui'
@@ -39,6 +39,17 @@ function emparejar(items: Item[], filas: Fila[], previa: Asignacion) {
   return { asignacion, sugerencias }
 }
 
+// Una entrada por variante. Con una sola presentación se compara el nombre del producto solo
+function armarItems(datos: { productos: ProductoPrecio[]; categorias: CategoriaPrecio[] } | null): Item[] {
+  const categorias = new Map((datos?.categorias ?? []).map((c) => [c.id, normalizar(c.nombre)]))
+  return (datos?.productos ?? []).flatMap((producto) =>
+    producto.variantes.map((variante) => {
+      const nombre = producto.variantes.length > 1 ? `${producto.nombre} ${variante.etiqueta}` : producto.nombre
+      return { producto, variante, nombre, firma: firma(nombre), categoria: categorias.get(producto.categoriaId) ?? '' }
+    }),
+  )
+}
+
 // proveedor: el PDF trae costos y se les suma la ganancia. final: el PDF ya trae el precio de venta
 type Modo = 'proveedor' | 'final'
 
@@ -69,6 +80,8 @@ export default function ActualizarPrecios() {
   const [guardando, setGuardando] = useState(false)
   // Formato que se está generando para descargar
   const [exportando, setExportando] = useState<'pdf' | 'docx' | null>(null)
+  // Se abrió "Crear producto" en otra pestaña: al volver se recargan los productos
+  const creando = useRef(false)
 
   function cargar() {
     cargarPrecios()
@@ -82,16 +95,29 @@ export default function ActualizarPrecios() {
 
   useEffect(cargar, [])
 
-  // Una entrada por variante. Con una sola presentación se compara el nombre del producto solo
-  const items = useMemo<Item[]>(() => {
-    const categorias = new Map((datos?.categorias ?? []).map((c) => [c.id, normalizar(c.nombre)]))
-    return (datos?.productos ?? []).flatMap((producto) =>
-      producto.variantes.map((variante) => {
-        const nombre = producto.variantes.length > 1 ? `${producto.nombre} ${variante.etiqueta}` : producto.nombre
-        return { producto, variante, nombre, firma: firma(nombre), categoria: categorias.get(producto.categoriaId) ?? '' }
-      }),
-    )
-  }, [datos])
+  // Trae los productos creados desde la lista sin perder lo cargado: los % en edición y las asignaciones
+  // se conservan, y los productos nuevos se encuentran por el nombre del proveedor que guardaron
+  useEffect(() => {
+    function alVolver() {
+      if (!creando.current) return
+      creando.current = false
+      cargarPrecios()
+        .then((d) => {
+          setDatos(d)
+          setMargenCat((m) => ({ ...Object.fromEntries(d.categorias.map((c) => [c.id, String(c.margen)])), ...m }))
+          setMargenProd((m) => ({ ...Object.fromEntries(d.productos.map((p) => [p.id, p.margen === null ? '' : String(p.margen)])), ...m }))
+          if (!filas) return
+          const r = emparejar(armarItems(d), filas, asignacion)
+          setAsignacion(r.asignacion)
+          setSugerencias(r.sugerencias)
+        })
+        .catch((e: Error) => setError(e.message))
+    }
+    window.addEventListener('focus', alVolver)
+    return () => window.removeEventListener('focus', alVolver)
+  }, [filas, asignacion])
+
+  const items = useMemo(() => armarItems(datos), [datos])
 
   // Agrega PDFs a los ya cargados: un producto puede estar en la lista de cualquier proveedor
   async function agregarPdfs(archivos: File[]) {
@@ -118,7 +144,7 @@ export default function ActualizarPrecios() {
       setAsignacion(r.asignacion)
       setSugerencias(r.sugerencias)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo leer el PDF.')
+      setError(e instanceof Error ? e.message : 'No se pudo leer el archivo.')
     } finally {
       setLeyendo(false)
     }
@@ -293,6 +319,11 @@ export default function ActualizarPrecios() {
   const categoriasDeLista = [
     ...new Set(asignadas.filter((it) => !archivoMargen || archivoDe(it) === archivoMargen).map((it) => it.producto.categoriaId)),
   ]
+  // Filas de la lista que no son de ningún producto: posibles productos nuevos. Una por nombre, aunque
+  // aparezca en varias listas, y ninguna con el nombre de una fila ya usada
+  const usadas = new Set(Object.values(asignacion).map((a) => a.i))
+  const vistas = new Set([...usadas].map((i) => filas![i].firma.clave))
+  const sinProducto = (filas ?? []).filter((f) => !usadas.has(f.i) && !vistas.has(f.firma.clave) && vistas.add(f.firma.clave))
   const sugeridas = items.filter((it) => !asignacion[it.variante.id] && mejorSugerencia(it.variante.id)).length
 
   return (
@@ -344,13 +375,13 @@ export default function ActualizarPrecios() {
       <p className="mt-3 mb-5 max-w-2xl text-sm text-bordo/70">
         {final
           ? 'Subí una lista con los precios de venta ya calculados: la que descargás acá (en PDF o Word, editada o no) o la lista impresa del local. Se buscan tus productos y se guarda el precio tal como viene, sin sumar ganancia.'
-          : 'Subí la lista del proveedor en PDF. Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.'}
+          : 'Subí la lista del proveedor (PDF, Excel o CSV). Se buscan tus productos en la lista y el precio nuevo es el costo del proveedor más el % de ganancia de la categoría (o el propio del producto). Los precios se redondean a pesos.'}
       </p>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-linea bg-white p-4">
         <input
           type="file"
-          accept={final ? '.pdf,.docx' : '.pdf'}
+          accept=".pdf,.docx,.xlsx,.csv"
           multiple
           disabled={leyendo}
           onChange={(e) => {
@@ -358,10 +389,10 @@ export default function ActualizarPrecios() {
             e.target.value = ''
           }}
           className="max-w-full text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-verde file:px-5 file:py-2.5 file:font-bold file:text-crema file:transition-colors hover:file:bg-verde-oscuro"
-          aria-label={final ? 'Listas con precios finales' : 'PDFs de los proveedores'}
+          aria-label={final ? 'Listas con precios finales' : 'Listas de los proveedores'}
         />
         <span className="text-sm text-bordo/60">
-          {final ? 'PDF o Word (.docx). ' : ''}Podés elegir varios archivos juntos o ir agregándolos.
+          PDF, Word (.docx), Excel (.xlsx) o CSV. Podés elegir varios archivos juntos o ir agregándolos.
         </span>
         {leyendo && (
           <span className="inline-flex items-center gap-2 text-sm font-semibold text-verde">
@@ -401,8 +432,8 @@ export default function ActualizarPrecios() {
               <label className="flex flex-wrap items-center gap-2 font-semibold">
                 Ganancia para
                 {archivos.length > 1 ? (
-                  <select value={archivoMargen} onChange={(e) => setArchivoMargen(e.target.value)} className="campo w-auto" aria-label="PDF">
-                    <option value="">todos los PDFs</option>
+                  <select value={archivoMargen} onChange={(e) => setArchivoMargen(e.target.value)} className="campo w-auto" aria-label="Lista">
+                    <option value="">todas las listas</option>
                     {archivos.map((a) => (
                       <option key={a.nombre} value={a.nombre}>
                         {a.nombre}
@@ -571,6 +602,8 @@ export default function ActualizarPrecios() {
             })}
           </div>
 
+          <SinProducto filas={sinProducto} final={final} onCrear={() => (creando.current = true)} />
+
           <div className="mt-6 flex justify-end">
             <button type="button" disabled={guardando || asignadas.length === 0} onClick={guardar} className="btn-pill disabled:opacity-60">
               <Ocupado activo={guardando} texto="Guardando…">
@@ -640,6 +673,48 @@ function Buscador({ filas, sugeridas, onElegir }: { filas: Fila[]; sugeridas: Ca
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// Filas de la lista sin producto en la tienda. "Crear producto" abre el formulario en otra pestaña con
+// el nombre y el costo (o el precio final) ya cargados, y esta pantalla queda como estaba
+function SinProducto({ filas, final, onCrear }: { filas: Fila[]; final: boolean; onCrear: () => void }) {
+  const [abierta, setAbierta] = useState(false)
+  const [texto, setTexto] = useState('')
+  if (filas.length === 0) return null
+  const buscado = normalizar(texto)
+  const visibles = buscado ? filas.filter((f) => f.firma.clave.includes(buscado)) : filas
+  const enlace = (f: Fila) =>
+    `/admin/producto/nuevo?${new URLSearchParams({ nombre: f.nombre, clave: f.firma.clave, [final ? 'precio' : 'costo']: String(f.precio) })}`
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-linea bg-white">
+      <button type="button" onClick={() => setAbierta(!abierta)} aria-expanded={abierta} className="flex w-full items-center gap-2 px-4 py-3 text-left font-extrabold">
+        <span aria-hidden className={`transition ${abierta ? 'rotate-90' : ''}`}>
+          ▸
+        </span>
+        En la lista pero no en la tienda
+        <span className="text-xs font-semibold text-bordo/60">{filas.length} filas · posibles productos nuevos</span>
+      </button>
+      {abierta && (
+        <div className="border-t border-linea p-4">
+          <input type="search" placeholder="Buscar en estas filas" value={texto} onChange={(e) => setTexto(e.target.value)} className="campo" />
+          <ul className="mt-3 max-h-96 divide-y divide-linea overflow-auto">
+            {visibles.map((f) => (
+              <li key={f.i} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm">
+                <span className="min-w-0 flex-1 basis-60">
+                  <strong>{f.nombre}</strong>
+                  <span className="ml-2 text-xs text-bordo/50">{[f.seccion, f.archivo].filter(Boolean).join(' · ')}</span>
+                </span>
+                <strong className="tabular-nums">{price.format(f.precio)}</strong>
+                <a href={enlace(f)} target="_blank" rel="noopener" onClick={onCrear} className="font-bold text-verde hover:underline">
+                  Crear producto
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
