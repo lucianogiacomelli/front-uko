@@ -7,7 +7,7 @@ import type { Categoria, Product } from '../types/product'
 const BUCKET = 'productos'
 
 export type ProductoAdmin = Product & { eliminadoEn: string | null }
-export type CategoriaAdmin = Categoria & { productos: number }
+export type CategoriaAdmin = Categoria & { productos: number; margen: number }
 
 const toAdmin = (row: ProductoRow): ProductoAdmin => ({ ...toProduct(row), eliminadoEn: row.eliminado_en })
 
@@ -32,7 +32,9 @@ export async function obtenerProducto(id: string): Promise<ProductoAdmin | null>
   return data ? toAdmin(data) : null
 }
 
-export async function guardarProducto(p: Product, nuevo: boolean) {
+// proveedor: el producto se crea desde una fila de la lista del proveedor. Se guarda en la primera
+// presentación para que la próxima lista la encuentre directo
+export async function guardarProducto(p: Product, nuevo: boolean, proveedor?: { costo: number | null; nombre: string }) {
   const { error } = await supabase.rpc('guardar_producto', {
     nuevo,
     producto: {
@@ -46,7 +48,7 @@ export async function guardarProducto(p: Product, nuevo: boolean) {
       en_oferta: p.enOferta,
       descuento: p.descuento,
     },
-    variantes: p.variantes,
+    variantes: p.variantes.map((v, i) => (i === 0 && proveedor ? { ...v, costo: proveedor.costo, nombre_proveedor: proveedor.nombre } : v)),
   })
   if (error) fallo(error)
   invalidarProductos()
@@ -125,11 +127,11 @@ export async function crearEtiqueta(nombre: string) {
 export async function listarCategorias(): Promise<CategoriaAdmin[]> {
   const { data, error } = await supabase
     .from('categorias')
-    .select('id, nombre, imagen, productos(count)')
+    .select('id, nombre, imagen, margen, productos(count)')
     .order('nombre')
-    .returns<(Categoria & { productos: { count: number }[] })[]>()
+    .returns<(Categoria & { margen: number; productos: { count: number }[] })[]>()
   if (error) fallo(error)
-  return data.map((c) => ({ ...c, productos: c.productos[0]?.count ?? 0 }))
+  return data.map((c) => ({ ...c, margen: Number(c.margen), productos: c.productos[0]?.count ?? 0 }))
 }
 
 export async function guardarCategoria(c: Categoria, nueva: boolean) {
