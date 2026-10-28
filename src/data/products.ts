@@ -59,6 +59,11 @@ export async function fetchCategorias(): Promise<Categoria[]> {
   return data
 }
 
+// Las imágenes subidas desde el admin tienen una versión chica para grillas y listas:
+// "123-g.webp" (grande, para la página del producto) y "123-c.webp" (chica). Las más viejas no tienen y se usan enteras.
+const GRANDE = /-g\.\w+$/
+export const miniatura = (url: string) => (GRANDE.test(url) ? url.replace(GRANDE, '-c.webp') : url)
+
 export function slugify(text: string): string {
   return text
     .normalize('NFD')

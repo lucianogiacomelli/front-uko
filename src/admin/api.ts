@@ -1,4 +1,4 @@
-import { PRODUCTO_SELECT, toProduct, type ProductoRow } from '../data/products'
+import { miniatura, PRODUCTO_SELECT, toProduct, type ProductoRow } from '../data/products'
 import { invalidarContacto, type Contacto } from '../data/contacto'
 import { invalidarProductos } from '../data/useProducts'
 import { supabase } from '../lib/supabase'
@@ -73,11 +73,20 @@ export async function eliminarDefinitivo(p: Pick<Product, 'id' | 'imagen'>) {
 }
 
 // carpeta: "productos/<id>" o "categorias/<id>"
-async function subirImagen(carpeta: string, file: File): Promise<string> {
+// Con versión chica se suben las dos con el mismo nombre base ("-g" y "-c", ver miniatura)
+async function subirImagen(carpeta: string, file: File, chica: File | null): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-  const path = `${carpeta}/${Date.now()}.${ext}`
+  const base = `${carpeta}/${Date.now()}`
+  const path = chica ? `${base}-g.${ext}` : `${base}.${ext}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type })
   if (error) throw new Error(`No se pudo subir la imagen: ${error.message}`)
+  if (chica) {
+    const { error: errorChica } = await supabase.storage.from(BUCKET).upload(`${base}-c.webp`, chica, { contentType: chica.type })
+    if (errorChica) {
+      await supabase.storage.from(BUCKET).remove([path])
+      throw new Error(`No se pudo subir la imagen: ${errorChica.message}`)
+    }
+  }
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
 
@@ -85,12 +94,12 @@ async function subirImagen(carpeta: string, file: File): Promise<string> {
 // Si el guardado falla, borra la imagen recién subida para no dejarla huérfana.
 export async function guardarConImagen(
   carpeta: string,
-  archivo: File | null,
+  archivo: { file: File; chica: File | null } | null,
   imagen: string,
   original: string,
   guardar: (imagen: string) => Promise<void>,
 ) {
-  const subida = archivo ? await subirImagen(carpeta, archivo) : null
+  const subida = archivo ? await subirImagen(carpeta, archivo.file, archivo.chica) : null
   const final = subida ?? imagen
   try {
     await guardar(final)
@@ -105,7 +114,8 @@ export async function guardarConImagen(
 export async function borrarImagen(url: string) {
   const prefijo = supabase.storage.from(BUCKET).getPublicUrl('').data.publicUrl
   if (!url.startsWith(prefijo)) return
-  await supabase.storage.from(BUCKET).remove([url.slice(prefijo.length)])
+  // Junto con su versión chica, si tiene
+  await supabase.storage.from(BUCKET).remove([...new Set([url, miniatura(url)])].map((u) => u.slice(prefijo.length)))
 }
 
 export async function listarEtiquetas(): Promise<string[]> {

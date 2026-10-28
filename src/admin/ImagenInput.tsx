@@ -2,24 +2,36 @@
 const MAX_IMAGEN = 25 * 1024 * 1024
 // Lado más largo al guardar: alcanza para la ficha del producto en pantallas de alta densidad
 const LADO_MAX = 1200
+// Versión chica para las tarjetas de la grilla y las listas (unas 4 veces más liviana)
+const LADO_CHICA = 480
 
-// Redimensiona y pasa a WebP: una foto de celular queda en unos 100-200 KB.
-// Si la original ya es más liviana (una imagen chica u optimizada), se usa esa.
-async function comprimir(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file)
-  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height))
+// Redimensiona a `lado` como máximo y pasa a WebP (null si el navegador no genera WebP)
+async function aWebp(bitmap: ImageBitmap, lado: number): Promise<File | null> {
+  const escala = Math.min(1, lado / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bitmap.width * escala)
   canvas.height = Math.round(bitmap.height * escala)
   canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
   const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/webp', 0.82))
-  if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file
-  return new File([blob], file.name.replace(/\.[^.]*$/, '') + '.webp', { type: 'image/webp' })
+  return blob?.type === 'image/webp' ? new File([blob], 'imagen.webp', { type: 'image/webp' }) : null
 }
 
-// Imagen elegida y todavía no subida, con su vista previa en data URL
-export type ArchivoImagen = { file: File; url: string }
+// Una foto de celular queda en unos 100-200 KB, y la chica en unos 30-50 KB.
+// Si la original ya es más liviana (una imagen chica u optimizada), se usa esa.
+// La chica solo se genera si la imagen es más grande que la tarjeta.
+async function comprimir(file: File): Promise<{ file: File; chica: File | null }> {
+  const bitmap = await createImageBitmap(file)
+  try {
+    const grande = await aWebp(bitmap, LADO_MAX)
+    const chica = Math.max(bitmap.width, bitmap.height) > LADO_CHICA ? await aWebp(bitmap, LADO_CHICA) : null
+    return { file: grande && grande.size < file.size ? grande : file, chica }
+  } finally {
+    bitmap.close()
+  }
+}
+
+// Imagen elegida y todavía no subida, con su versión chica y su vista previa en data URL
+export type ArchivoImagen = { file: File; chica: File | null; url: string }
 
 type Props = {
   // URL guardada (vacía si no tiene)
@@ -39,9 +51,9 @@ export default function ImagenInput({ imagen, archivo, onArchivo, onQuitar, onEr
     if (!file.type.startsWith('image/')) return onError('El archivo tiene que ser una imagen.')
     if (file.size > MAX_IMAGEN) return onError('La imagen pesa más de 25 MB.')
     comprimir(file)
-      .then((final) => {
+      .then(({ file: final, chica }) => {
         const reader = new FileReader()
-        reader.onload = () => onArchivo({ file: final, url: String(reader.result) })
+        reader.onload = () => onArchivo({ file: final, chica, url: String(reader.result) })
         reader.onerror = () => onError('No se pudo leer la imagen.')
         reader.readAsDataURL(final)
       })

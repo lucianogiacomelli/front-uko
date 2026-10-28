@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { price } from '../data/format'
-import { slugify } from '../data/products'
+import { miniatura, slugify } from '../data/products'
 import type { Categoria } from '../types/product'
 import { eliminarDefinitivo, listarCategorias, listarProductos, marcarEliminado, type ProductoAdmin } from './api'
 import { Aviso, Cargando, Spinner } from './ui'
@@ -134,7 +134,7 @@ export default function ListaProductos() {
         {visibles.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-crema-claro">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-linea bg-crema-claro">
-              {p.imagen && <img src={p.imagen} alt="" loading="lazy" className="max-h-full max-w-full rounded-md object-contain" />}
+              {p.imagen && <img src={miniatura(p.imagen)} alt="" loading="lazy" className="max-h-full max-w-full rounded-md object-contain" />}
             </div>
             <div className="min-w-0 flex-1">
               <Link to={`/admin/producto/${p.id}`} state={volver} className="font-bold hover:text-verde hover:underline">

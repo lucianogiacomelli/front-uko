@@ -169,7 +169,7 @@ export default function EditarProducto() {
     setGuardando(true)
     setError(null)
     try {
-      await guardarConImagen(`productos/${producto.id}`, archivo?.file ?? null, producto.imagen, imagenOriginal, (imagen) =>
+      await guardarConImagen(`productos/${producto.id}`, archivo, producto.imagen, imagenOriginal, (imagen) =>
         guardarProducto({ ...producto, imagen }, nuevo, desdeLista?.costo != null ? { costo: desdeLista.costo, nombre: desdeLista.clave } : undefined),
       )
       // Abierto en otra pestaña desde Actualizar precios: se cierra y queda esa pantalla, con las listas cargadas

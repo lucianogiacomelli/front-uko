@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { miniatura } from '../data/products'
 import { eliminarCategoria, listarCategorias, type CategoriaAdmin } from './api'
 import { Aviso, Cargando, Spinner } from './ui'
 
@@ -46,7 +47,7 @@ export default function ListaCategorias() {
         {categorias.map((c) => (
           <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-crema-claro">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-linea bg-crema-claro">
-              {c.imagen && <img src={c.imagen} alt="" loading="lazy" className="h-full w-full object-cover" />}
+              {c.imagen && <img src={miniatura(c.imagen)} alt="" loading="lazy" className="h-full w-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
               <Link to={`/admin/categorias/${c.id}`} className="font-bold hover:text-verde hover:underline">
